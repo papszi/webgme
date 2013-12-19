@@ -15,7 +15,8 @@ define(['logManager',
     'js/PanelManager/PanelManager',
     './WebGME.History',
     'js/Utils/METAAspectHelper',
-    'js/ConstraintManager/ConstraintManager'], function (logManager,
+    'js/ConstraintManager/ConstraintManager',
+    'js/pegasusInterpreter'], function (logManager,
                                             CONFIG,
                                             Client,
                                             util,
@@ -26,7 +27,8 @@ define(['logManager',
                                             PanelManager,
                                             WebGMEHistory,
                                             METAAspectHelper,
-                                            ConstraintManager) {
+                                            ConstraintManager,
+                                            PegasusInterpreter) {
 
     var _webGMEStart = function () {
         var lm,
@@ -88,6 +90,7 @@ define(['logManager',
                 if (panels.length > 0) {
                     loadPanels(panels);
                 } else {
+                    new PegasusInterpreter(client);
                     client.connectToDatabaseAsync({'open': true,
                                                     'project': projectToLoad || CONFIG.project}, function (err) {
                         if (err) {
