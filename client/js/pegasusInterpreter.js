@@ -79,10 +79,10 @@ define(['logManager',
         var date = new Date(),
             graphInfo = '',
             res = '<?xml version="1.0" encoding="UTF-8"?>\n<!-- generated: ' + date.getFullYear() + '-' + (date.getMonth().length === 1 ? '0' + date.getMonth() : date.getMonth() ) 
-                + '-' + (date.getDate().length === 1 ? '0' + date.getDate() : date.getDate() ) + ' ' 
-                + (date.getHours().length === 1 ? '0' + date.getHours() : date.getHours() ) + ':'
-                + (date.getMinutes().length === 1 ? '0' + date.getMinutes() : date.getMinutes() ) + ':'
-                + (date.getSeconds().length === 1 ? '0' + date.getSeconds() : date.getSeconds() ) + ' -->\n<adag xmlns="http://pegasus.isi.edu/schema/DAX" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://pegasus.isi.edu/schema/DAX http://pegasus.isi.edu/schema/dax-3.4.xsd" version="3.4" name="' + xmlName + '">\n';
+                + '-' + (date.getDate().toString().length === 1 ? '0' + date.getDate().toString() : date.getDate() ) + ' ' 
+                + (date.getHours().toString().length === 1 ? '0' + date.getHours().toString() : date.getHours() ) + ':'
+                + (date.getMinutes().toString().length === 1 ? '0' + date.getMinutes().toString() : date.getMinutes() ) + ':'
+                + (date.getSeconds().toString().length === 1 ? '0' + date.getSeconds().toString() : date.getSeconds() ) + ' -->\n<adag xmlns="http://pegasus.isi.edu/schema/DAX" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://pegasus.isi.edu/schema/DAX http://pegasus.isi.edu/schema/dax-3.4.xsd" version="3.4" name="' + xmlName + '">\n';
 
         //Add jobs and arg info
         this.nodesByType['Transformation Ref'].forEach( function( node, index, array ){
