@@ -63,9 +63,13 @@ define(['logManager',
             //Create the replica catalog
             var rc = this._createRC();
 
+            //Create the site catalog
+            var sc = this._createSC();
+
             //this._downloadText(dax, "result.dax");
             this._downloadText(tc, "tc.dat");
             this._downloadText(rc, "rc.dat");
+            this._downloadText(sc, "sites.xml");
         }
     };
 
@@ -263,8 +267,8 @@ define(['logManager',
 
                         opIds.forEach( function( opId, i2, a2) {
                             var op = this._client.getNode(opId),
-                                o = ,
-                                url = ;
+                                o = op.getAttribute('Type'),
+                                url = op.getAttribute('Url');
 
                             res += '\t\t\t<file-server operation="' + o + '" url="' + url + '"/>\n';
                         }, this);
