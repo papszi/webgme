@@ -66,7 +66,7 @@ define(['logManager',
             //Create the site catalog
             var sc = this._createSC();
 
-            //this._downloadText(dax, "result.dax");
+            this._downloadText(dax, "result.dax");
             this._downloadText(tc, "tc.dat");
             this._downloadText(rc, "rc.dat");
             this._downloadText(sc, "sites.xml");
@@ -266,11 +266,11 @@ define(['logManager',
                         res += '\t\t<directory type="' + t + '" path="' + path + '">\n';
 
                         opIds.forEach( function( opId, i2, a2) {
-                            var op = this._client.getNode(opId),
-                                o = op.getAttribute('Type'),
-                                url = op.getAttribute('Url');
+                            //var op = this._client.getNode(opId),
+                                //o = op.getAttribute('Type'),
+                                //url = op.getAttribute('Url');
 
-                            res += '\t\t\t<file-server operation="' + o + '" url="' + url + '"/>\n';
+                            //res += '\t\t\t<file-server operation="' + o + '" url="' + url + '"/>\n';
                         }, this);
 
                         res += '\t\t</directory>\n';
