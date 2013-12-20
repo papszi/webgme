@@ -2,22 +2,24 @@
 
 define(['logManager',
         'js/NodePropertyNames',
-        'js/Utils/METAAspectHelper',
+        'js/brollb.META.js',
         'js/Constants'], function (logManager,
                                                     nodePropertyNames,
-                                                    METAAspectHelper,
+                                                    domainMeta,
                                                     CONSTANTS) {
   
     var PegasusInterpreter = function(_client) {
         this._logger = logManager.create('PegasusInterpreter');
         this._client = _client;
+        this.pegasusTypes = domainMeta.TYPE_INFO;
         this.currentObject;
         var self = this;
 
         WebGMEGlobal.Toolbar.addButton({ 'title': "Pegasus Interpreter",
             "text":"Pegasus", 
             "clickFn": function (){
-                self._runPegasusInterpreter();
+                self._territoryId = self._client.addUI(self, true);
+                self._client.updateTerritory(self._territoryId, { 'root': { 'children': 5 }});
             }
         });
 
@@ -28,15 +30,22 @@ define(['logManager',
 
     };
 
+    PegasusInterpreter.prototype.onOneEvent = function(events){
+        this._runPegasusInterpreter();
+
+        this._client.removeUI(this._territoryId);
+    };
+
     PegasusInterpreter.prototype._runPegasusInterpreter = function(){
         this.nodesByType = {};
-        this.connections = [];
         this.nodeId2jobId = {};
-        this._logger.warning("Pegasus is running on " + this._client.getNode(this.currentObject).getAttribute(nodePropertyNames.Attributes.name));
+
         if( this.currentObject !== undefined 
-            && this._client.getNode(this._client.getNode(this.currentObject).getBaseId()).getAttribute(nodePropertyNames.Attributes.name) === 'Project' ){//Check that the current page is a 'Project'
+            && this.pegasusTypes.isProject(this.currentObject) ){//Check that the current page is a 'Project'
+
             var childNames = this._client.getNode(this.currentObject).getChildrenIds(),
-                dax;
+                dax,
+                sc;
 
             //Populate the object arrays by type
             childNames.forEach( function( name, index, array ){
@@ -47,9 +56,6 @@ define(['logManager',
 
                 if(this.nodesByType[type] === undefined)
                     this.nodesByType[type] = [];
-
-                if(isConnection)
-                    this.connections.push(node);
 
                 this.nodesByType[type].push(node);
 
@@ -100,7 +106,7 @@ define(['logManager',
 
             //get incoming and outgoing files and create graphInfo
             nodeParents = '<child ref="' + id + '">\n';
-            this.connections.forEach( function ( conn, i, a ){
+            this.nodesByType['FileRoute'].forEach( function ( conn, i, a ){
                 if(conn.getPointer(CONSTANTS.POINTER_SOURCE).to === node.getId())
                     output.push(conn);
                     
@@ -127,8 +133,8 @@ define(['logManager',
             res += '\t\t<argument>'
             input.forEach( function (conn, i, a) {
                 var name = conn.getAttribute(nodePropertyNames.Attributes.name),
-                    register = conn.getAttribute("register"),
-                    transfer  = conn.getAttribute('transfer'),
+                    register = conn.getAttribute("Register"),
+                    transfer  = conn.getAttribute('Transfer'),
                     src = this._client.getNode(conn.getPointer(CONSTANTS.POINTER_SOURCE).to),
                     srcType = this._client.getNode(src.getBaseId()).getAttribute(nodePropertyNames.Attributes.name);
     
@@ -235,7 +241,6 @@ define(['logManager',
         var sites = this.nodesByType['Site'],
             res = '<?xml version="1.0" encoding="UTF-8"?>\n<sitecatalog xmlns="http://pegasus.isi.edu/schema/sitecatalog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi.edu/schema/sc-4.0.xsd" version="4.0">\n';
             
-
         sites.forEach( function (site, index, array) {
             var name = site.getAttribute(nodePropertyNames.Attributes.name),
                 arch = site.getAttribute('Architecture'),
@@ -266,11 +271,11 @@ define(['logManager',
                         res += '\t\t<directory type="' + t + '" path="' + path + '">\n';
 
                         opIds.forEach( function( opId, i2, a2) {
-                            //var op = this._client.getNode(opId),
-                                //o = op.getAttribute('Type'),
-                                //url = op.getAttribute('Url');
+                            var op = this._client.getNode(opId),
+                                o = op.getAttribute('Type'),
+                                url = op.getAttribute('Url');
 
-                            //res += '\t\t\t<file-server operation="' + o + '" url="' + url + '"/>\n';
+                            res += '\t\t\t<file-server operation="' + o + '" url="' + url + '"/>\n';
                         }, this);
 
                         res += '\t\t</directory>\n';
