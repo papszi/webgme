@@ -13,6 +13,7 @@ define(['logManager',
         this._client = _client;
         this.pegasusTypes = domainMeta.TYPE_INFO;
         this.currentObject;
+        this.namespace; //Set from the currentObject's name
         var self = this;
 
         WebGMEGlobal.Toolbar.addButton({ 'title': "Pegasus Interpreter",
@@ -43,6 +44,7 @@ define(['logManager',
         if( this.currentObject !== undefined 
             && this.pegasusTypes.isProject(this.currentObject) ){//Check that the current page is a 'Project'
 
+            this.namespace = this._client.getNode(this.currentObject).getAttribute(nodePropertyNames.Attributes.name);
             var childNames = this._client.getNode(this.currentObject).getChildrenIds(),
                 dax = { 'name': 'result.dax'},
                 tc = { 'name': 'tc.dat'},
@@ -51,7 +53,7 @@ define(['logManager',
                 pc = { 'name': 'pegasus.conf'};
 
             //Populate the object arrays by type
-            childNames.forEach( function( name, index, array ){
+            childNames.forEach( function( name, index, array ){//TODO load in more levels
                 var node = this._client.getNode(name),
                     type = this._client.getNode(node.getBaseId()).getAttribute(nodePropertyNames.Attributes.name),
                     isConnection = node.getPointerNames().indexOf(CONSTANTS.POINTER_SOURCE) !== -1 && 
@@ -77,7 +79,7 @@ define(['logManager',
             sc.data = this._createSC();
 
             //Create the pegasus config file
-            pc.data = this._createPC({ 'tc': tc, 'rc': rc, 'sc': sc );
+            pc.data = this._createPC({ 'tc': tc, 'rc': rc, 'sc': sc });
 
             this._downloadText(dax);
             this._downloadText(tc);
@@ -114,12 +116,13 @@ define(['logManager',
             id = this.nodeId2jobId[node.getId()];
 
             //get incoming and outgoing files and create graphInfo
-            nodeParents = '<child ref="' + id + '">\n';
+            nodeParents = '\t<child ref="' + id + '">\n';
             this.nodesByType['FileRoute'].forEach( function ( conn, i, a ){
                 if(conn.getPointer(CONSTANTS.POINTER_SOURCE).to === node.getId())
                     output.push(conn);
                     
-                if(conn.getPointer(CONSTANTS.POINTER_TARGET).to === node.getId()){
+                if(conn.getPointer(CONSTANTS.POINTER_TARGET).to === node.getId()
+                    && this.pegasusTypes.isTransformation_Ref(conn.getPointer(CONSTANTS.POINTER_SOURCE).to) ){ //Make sure it is from another trans ref
                     var parId = conn.getPointer(CONSTANTS.POINTER_SOURCE).to;
 
                     input.push(conn);
@@ -127,11 +130,11 @@ define(['logManager',
                     if(this.nodeId2jobId[parId] === undefined)
                         this._generateId(parId);
 
-                    nodeParents += '<parent ref="' + this.nodeId2jobId[parId] + '" />\n';
+                    nodeParents += '\t\t<parent ref="' + this.nodeId2jobId[parId] + '" />\n';
                 }
 
             }, this);
-            nodeParents += '</child>\n';
+            nodeParents += '\t</child>\n';
 
             if( nodeParents.indexOf("parent") !== -1 )
                 graphInfo += nodeParents;
@@ -167,7 +170,7 @@ define(['logManager',
                 }
 
 
-                res += ' -i <file name="' + name + '"/>';
+                res += ' -o <file name="' + name + '"/>';
                 uses += '\t\t\t<uses name="' + name + '" link="output" register="' + register + '" transfer="' + transfer + '" />\n';
             }, this);
 
@@ -180,7 +183,7 @@ define(['logManager',
 
         //Add job graph info
 
-        res += '</adag>';
+        res += graphInfo + '\n</adag>';
         return res;
     };
 
@@ -198,33 +201,81 @@ define(['logManager',
     PegasusInterpreter.prototype._createTC = function(){
         //Create a Transformation Catalog
         var res = '',
-            trans = [],
+            trans = {},
             tranRefs = this.nodesByType['Transformation Ref'];
 
         tranRefs.forEach( function( tranRef, index, array ){
             var tranId = tranRef.getPointer(CONSTANTS.POINTER_REF).to; //Get referenced transition
-                
-            if(trans.indexOf(tranId) === -1){ //If we haven't already accounted for the transformations
+
+            if(trans[tranId] === undefined){ //If we haven't already accounted for the transformations
                 var tran = this._client.getNode(tranId),
+                    children = tran.getChildrenIds(),
+                    profiles = [],
                     name = tran.getAttribute(nodePropertyNames.Attributes.name),
+                    version = tran.getAttribute('Version') || '1.0', //Default version is 1.0
                     pfn = tran.getAttribute('Physical File Name'),
+                    type = tran.getAttribute('Type'),
+                    site = this._client.getNode(tran.getParentId()),
+                    siteName = site.getAttribute(nodePropertyNames.Attributes.name),
+                    siteChildren = site.getChildrenIds(),
+                    siteProfiles = [],
+                    arch = tran.getAttribute('Architecture') || site.getAttribute('Architecture'),//If arch, os not specified assume it can run on the the respective site
+                    os = tran.getAttribute('OS') || site.getAttribute('OS');
+
+                children.forEach( function(childId, i, ar){
+                    if(this.pegasusTypes.isProfile_Item(childId))
+                        profiles.push(this._client.getNode(childId));
+                }, this);
+                
+                siteChildren.forEach( function(childId, i, ar){
+                    if(this.pegasusTypes.isProfile_Item(childId))
+                        siteProfiles.push(this._client.getNode(childId));
+                }, this);
+
+                trans[tranId] = 'tr ' + this.namespace + '::' + name + ':' + version + ' {\n';
+
+                //Add profiles
+                profiles.forEach( function(profile, i, ar){
+                    trans[tranId] += '\tprofile ' + profile.getAttribute('Namespace') + ' "' + profile.getAttribute('Key') + '" "' + profile.getAttribute('Value') + '"\n';
+                }, this);
+
+                trans[tranId] += '\n\tsite ' + siteName
+                    + ' {\n';
+
+                siteProfiles.forEach( function(profile, i, ar){
+                    trans[tranId] += '\t\tprofile ' + profile.getAttribute('Namespace') + ' "' + profile.getAttribute('Key') + '" "' + profile.getAttribute('Value') + '"\n';
+                }, this);
+
+                trans[tranId] += '\t\tpfn ' + pfn 
+                    + '\n\t\tarch ' + arch
+                    + '\n\t\tos ' + os
+                    + '\n\t\ttype ' + type + '\n\t}\n\n';
+
+            }
+
+            if(this.pegasusTypes.isSite(tranRef.getParentId())){//Add it to the TC file!
+                var pfn = tran.getAttribute('Physical File Name'),
                     type = tran.getAttribute('Type'),
                     site = this._client.getNode(tran.getParentId()),
                     siteName = site.getAttribute(nodePropertyNames.Attributes.name),
                     arch = tran.getAttribute('Architecture') || site.getAttribute('Architecture'),//If arch, os not specified assume it can run on the the respective site
                     os = tran.getAttribute('OS') || site.getAttribute('OS');
-
                 
-                res += 'tr ' + name + ' {\n\tsite ' + siteName
-                        + ' {\n\t\tpfn ' + pfn 
-                        + '\n\t\tarch ' + arch
-                        + '\n\t\tos ' + os
-                        + '\n\t\ttype ' + type + '\n\t}\n}\n\n';
+                trans[tranId] = '\tsite ' + siteName
+                    + ' {\n\t\tpfn ' + pfn 
+                    + '\n\t\tarch ' + arch
+                    + '\n\t\tos ' + os
+                    + '\n\t\ttype ' + type + '\n\t}\n\n';
 
-                trans.push(tranId);
             }
                 
         }, this);
+
+        //build res from transformations
+        for(var k in trans){
+            if(trans.hasOwnProperty(k))
+                res += trans[k] + '\n}\n\n';
+        }
 
         return res;
     };
@@ -318,6 +369,7 @@ define(['logManager',
     };
 
     PegasusInterpreter.prototype._createPC = function(files){
+        //TODO Finish this
         var res = '',
             siteCatalog = files.sc.name,
             replicaCatalog = files.rc.name,
