@@ -44,17 +44,11 @@ define(['logManager',
             && this.pegasusTypes.isProject(this.currentObject) ){//Check that the current page is a 'Project'
 
             var childNames = this._client.getNode(this.currentObject).getChildrenIds(),
-<<<<<<< HEAD
                 dax = { 'name': 'result.dax'},
                 tc = { 'name': 'tc.dat'},
                 rc = { 'name': 'rc.dat'},
                 sc = { 'name': 'sites.xml'},
                 pc = { 'name': 'pegasus.conf'};
-
-=======
-                dax,
-                sc;
->>>>>>> b839b9143cc2156c3bef8927117e445ee394b22b
 
             //Populate the object arrays by type
             childNames.forEach( function( name, index, array ){
@@ -70,7 +64,6 @@ define(['logManager',
 
             }, this);
 
-<<<<<<< HEAD
             //Create the DAX file
             dax.data = this._createDAX(this._client.getNode(this.currentObject).getAttribute(nodePropertyNames.Attributes.name));
 
@@ -91,32 +84,12 @@ define(['logManager',
             this._downloadText(rc);
             this._downloadText(sc);
             this._downloadText(pc);
-=======
-            dax = this._createXML(this._client.getNode(this.currentObject).getAttribute(nodePropertyNames.Attributes.name));
-
-            //Create the transformation catalog
-            var tc = this._createTC();
-
-            //Create the replica catalog
-            var rc = this._createRC();
-
-            //Create the site catalog
-            var sc = this._createSC();
-
-            this._downloadText(dax, "result.dax");
-            this._downloadText(tc, "tc.dat");
-            this._downloadText(rc, "rc.dat");
-            this._downloadText(sc, "sites.xml");
->>>>>>> b839b9143cc2156c3bef8927117e445ee394b22b
         }
     };
 
     //DAX creating methods
-<<<<<<< HEAD
     PegasusInterpreter.prototype._createDAX = function(xmlName){
-=======
-    PegasusInterpreter.prototype._createXML = function(xmlName){
->>>>>>> b839b9143cc2156c3bef8927117e445ee394b22b
+
         //Constructing a string for the xml
         var date = new Date(),
             graphInfo = '',
@@ -344,7 +317,6 @@ define(['logManager',
             
     };
 
-<<<<<<< HEAD
     PegasusInterpreter.prototype._createPC = function(files){
         var res = '',
             siteCatalog = files.sc.name,
@@ -363,11 +335,6 @@ define(['logManager',
                 name = file.name,
                 txt = file.data;
 
-=======
-    PegasusInterpreter.prototype._downloadText = function(txt, name){
-            //Creating file and downloading it
-            var pom = document.createElement('a');
->>>>>>> b839b9143cc2156c3bef8927117e445ee394b22b
             pom.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(txt));
             pom.setAttribute('download', name);
             pom.click();
