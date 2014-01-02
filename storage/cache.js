@@ -323,9 +323,9 @@ define([ "util/assert" ], function (ASSERT) {
 			getDatabaseStatus: database.getDatabaseStatus,
 			getProjectNames: database.getProjectNames,
             getAllowedProjectNames: database.getAllowedProjectNames,
+            getAuthorizationInfo: database.getAuthorizationInfo,
 			openProject: openProject,
-			deleteProject: deleteProject,
-            authenticate: database.authenticate
+			deleteProject: deleteProject
 		};
 	};
 

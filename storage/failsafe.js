@@ -480,10 +480,10 @@ define([ "util/assert", "util/guid" ], function (ASSERT, GUID) {
 			fsyncDatabase: fsyncDatabase,
 			getProjectNames: getProjectNames,
             getAllowedProjectNames: getAllowedProjectNames,
+            getAuthorizationInfo: _database.getAuthorizationInfo,
 			getDatabaseStatus: _database.getDatabaseStatus,
 			openProject: openProject,
-			deleteProject: deleteProject,
-            authenticate: _database.authenticate
+			deleteProject: deleteProject
 		};
 	}
 
