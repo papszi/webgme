@@ -79,13 +79,13 @@ define(['logManager',
             sc.data = this._createSC();
 
             //Create the pegasus config file
-            pc.data = this._createPC({ 'tc': tc, 'rc': rc, 'sc': sc });
+            //pc.data = this._createPC({ 'tc': tc, 'rc': rc, 'sc': sc });
 
             this._downloadText(dax);
             this._downloadText(tc);
             this._downloadText(rc);
             this._downloadText(sc);
-            this._downloadText(pc);
+            //this._downloadText(pc);
         }
     };
 
