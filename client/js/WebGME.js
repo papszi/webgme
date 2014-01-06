@@ -17,7 +17,8 @@ define(['logManager',
     './WebGME.History',
     'js/Utils/METAAspectHelper',
     'js/ConstraintManager/ConstraintManager',
-    'js/pegasusInterpreter'], function (logManager,
+    'js/pegasusInterpreter',
+    'js/genInterpreter'], function (logManager,
                                             CONFIG,
                                             packagejson,
                                             Client,
@@ -30,7 +31,8 @@ define(['logManager',
                                             WebGMEHistory,
                                             METAAspectHelper,
                                             ConstraintManager,
-                                            PegasusInterpreter) {
+                                            PegasusInterpreter,
+                                            genInterpreter) {
 
     var npmJSON = JSON.parse(packagejson);
     WebGMEGlobal.version = npmJSON.version;
@@ -98,6 +100,7 @@ define(['logManager',
                     loadPanels(panels);
                 } else {
                     new PegasusInterpreter(client);
+                    new genInterpreter(client);
                     client.connectToDatabaseAsync({'open': true,
                                                     'project': projectToLoad || CONFIG.project}, function (err) {
                         if (err) {
