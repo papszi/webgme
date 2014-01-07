@@ -68,6 +68,7 @@ define(['js/Constants',
         this.skinParts.$name.on("dblclick.editOnDblClick", null, function (event) {
             if (self.hostDesignerItem.canvas.getIsReadOnlyMode() !== true) {
                 $(this).editInPlace({"class": "",
+                    "value": self.name,
                     "onChange": function (oldValue, newValue) {
                         self.__onNodeTitleChanged(oldValue, newValue);
                     }});
@@ -95,11 +96,11 @@ define(['js/Constants',
 
     /**** Override from DiagramDesignerWidgetDecoratorBase ****/
     ModelDecoratorDiagramDesignerWidget.prototype.calculateDimension = function () {
+        this._paddingTop = parseInt(this.$el.css('padding-top'), 10);
+        this._borderTop = parseInt(this.$el.css('border-top-width'), 10);
+
         if (this.hostDesignerItem) {
             this.hostDesignerItem.setSize(this.$el.outerWidth(true), this.$el.outerHeight(true));
-
-            this._paddingTop = parseInt(this.$el.css('padding-top'), 10);
-            this._borderTop = parseInt(this.$el.css('border-top-width'), 10);
         }
     };
 
@@ -143,7 +144,7 @@ define(['js/Constants',
                 "angle1": 90,
                 "angle2": 90,
                 "len": LEN} );
-        } else {
+        } else if (this._ports[id]) {
             //subcomponent
             var portConnArea = this._ports[id].getConnectorArea(),
                 idx = this._portIDs.indexOf(id);
