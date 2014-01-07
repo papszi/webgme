@@ -28,31 +28,44 @@ define(['logManager',
     };
 
     GenerativeInterpreter.prototype.onOneEvent = function(events){
-        this._runGenerativeInterpreter();
-
         this._client.removeUI(this._territoryId);
+        this._runGenerativeInterpreter();
     };
 
     GenerativeInterpreter.prototype._runGenerativeInterpreter = function(){
         //Insert interpreter logic here
         this._logger.info("Running Generative Interpreter");
+
+        var childNames = this._client.getNode(this.currentObject).getChildrenIds(),
+            i = childNames.length;
+
+        while(i--){        
+            var node = this._client.getNode(childNames[i]);
+            this._copyNode(node);
+        }
+
     };
 
     GenerativeInterpreter.prototype._copyNode = function(node){
         var names = node.getAttributeNames(),
             i = names.length,
             attributes = {},
+            newNodeId,
             newNode,
             baseId = node.getBaseId(),
             pos = {},
             params;
 
+        newNodeId = this._client.createChild({ 'parentId': this.currentObject, 'baseId': baseId, 'position': pos });
+        newNode = this._client.getNode(newNodeId);
+
         while(i--){
-            var attr = names[i];
-            attributes[attr] = node.getAttribute(attr);
+            var attrName = names[i],
+                attr = newNode.getEditableAttribute(attrName);
+            attr = node.getAttribute(attrName);
+            //attributes[attr] = node.getAttribute(attr);
         }
 
-        newNode = this._client.createChild({ 'parentId': this.currentObject, 'baseId': baseId, 'position': pos });
 
         //TODO add the attributes to the new node
     };
