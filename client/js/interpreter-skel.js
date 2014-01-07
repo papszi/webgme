@@ -35,9 +35,8 @@ define(['logManager',
     };
 
     GenericInterpreter.prototype.onOneEvent = function(events){
-        this._runGenericInterpreter();
-
         this._client.removeUI(this._territoryId);
+        this._runGenericInterpreter();
     };
 
     GenericInterpreter.prototype._runGenericInterpreter = function(){
