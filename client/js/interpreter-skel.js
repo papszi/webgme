@@ -4,7 +4,7 @@
  * This is a skeleton interpreter file. To create an interpreter, simply specify the appropriate territory and insert 
  * the interpreter logic.
  * 
- * Currently, server side interpreters need to be added in the created in the WebGME.js file.
+ * Currently, server side interpreters need to be added in the WebGME.js file.
  */
 
 define(['logManager',
