@@ -40,23 +40,20 @@ define(['logManager',
         this._logger.info("Running Generative Interpreter");
         this.original2copy = {}; //Mapping original node ids to copy
         this.boxes2process = [];
-        this.tempNodeIds = [];
-        this.outputId;
+        this.params = [{}];
+        this.extraCopying = [];
 
-        //var childNames = this._client.getNode(this.currentObject).getChildrenIds(),
-            //i = childNames.length;
-
-        this._client.startTransaction();
         this._createOutputProject();
+        this._client.startTransaction();
+        this._cloneChildren(this.currentObject, this.params[0].parentId);
+
+        var i = this.params.length;
+        while(i--){
+            this.original2copy[this.params[i].parentId] = this._client.copyMoreNodes(this.params[i]);
+        }
 
 /*
-        while(i--){        
-            var node = this._client.getNode(childNames[i]);
-            this._copyNode(node, this.outputId);
-        }
-*/
-
-        this.boxes2process.push({ 'num': 1, 'child': this._client.getNode(this.currentObject), 'dstId': this.outputId });
+        this.boxes2process.push({ 'num': 1, 'child': this.currentObject, 'dstId': this.outputId });
 
         //Generate Loops, etc
         while(this.boxes2process.length){
@@ -69,7 +66,40 @@ define(['logManager',
                 this._cloneChildren(child, dstId);
             }
         }
+*/
 
+
+        this._client.completeTransaction();
+        this._client.startTransaction();
+
+        //Handle the 'extraCopying'
+        this.copyParams = {};
+        while(this.extraCopying.length){
+            var job = this.extraCopying.splice(0, 1)[0],
+                i = 0;
+            job.id = this.original2copy[job.dstId][job.id];
+
+            while(i < job.num){
+
+                if(this.copyParams[job.dstId] === undefined)
+                    this.copyParams[job.dstId] = [{ 'parentId': job.dstId }];
+
+                if(i === this.copyParams[job.dstId].length)
+                    this.copyParams[job.dstId].push({ 'parentId': job.dstId });
+
+                this.copyParams[job.dstId][i][job.id] = {};
+                i++;
+            }
+        }
+
+        for(var plist in this.copyParams){
+            if(this.copyParams.hasOwnProperty(plist)){
+                i = this.copyParams[plist].length;
+                while(i--){
+                    this._client.copyMoreNodes(this.copyParams[plist][i]);
+                }
+            }
+        }
         this._client.completeTransaction();
 
     };
@@ -79,66 +109,77 @@ define(['logManager',
             baseId = currentNode.getBaseId(),
             name = "Generated From " + currentNode.getAttribute(nodePropertyNames.Attributes.name);
 
-        this.outputId = this._client.createChild({ 'parentId': CONSTANTS.PROJECT_ROOT_ID, 'baseId': baseId });
+        this.params[0].parentId = this._client.createChild({ 'parentId': currentNode.getParentId(), 'baseId': baseId });
 
-        this._setNodeAttributes(this.outputId, this.currentObject);
-        this._client.setAttributes(this.outputId, nodePropertyNames.Attributes.name, name);
+        this._setNodeAttributes(this.params[0].parentId, this.currentObject);
+        this._client.setAttributes(this.params[0].parentId, nodePropertyNames.Attributes.name, name);
     };
 
-    GenerativeInterpreter.prototype._cloneChildren = function(node, dstId){
-        var childrenIds = node.getChildrenIds(),
+    GenerativeInterpreter.prototype._cloneChildren = function(nodeId, dstId, num){
+        var node = this._client.getNode(nodeId),
+            childrenIds = node.getChildrenIds(),
             i = childrenIds.length,
             currId = node.getId(),
-            self = this;
-
-        childrenIds.sort(function(a, b){//Sort the childrenIds so connections come first
-            var aPtrNames = self._client.getNode(a).getPointerNames(),
-                bPtrNames = self._client.getNode(b).getPointerNames(),
-                aVal = aPtrNames.indexOf(CONSTANTS.POINTER_SOURCE) > -1 && aPtrNames.indexOf(CONSTANTS.POINTER_TARGET) > -1,
-                bVal = bPtrNames.indexOf(CONSTANTS.POINTER_SOURCE) > -1 && bPtrNames.indexOf(CONSTANTS.POINTER_TARGET) > -1;
-
-            return bVal - aVal;
-        });
+            n = num || 1;
 
         while(i--){
-            var child = this._client.getNode(childrenIds[i]),
+             var child = this._client.getNode(childrenIds[i]),
                 childType = child.getBaseId(),
                 ptrNames = child.getPointerNames(),
-                src,
-                dst,
-                srcParent,
-                dstParent;
+                src = null,
+                dst = null,
+                srcParent = null,
+                dstParent = null;
+
+            n = num || 1;
 
             if( ptrNames.indexOf(CONSTANTS.POINTER_SOURCE) !== -1 
                 && ptrNames.indexOf(CONSTANTS.POINTER_TARGET) !== -1){
-                src = child.getPointer(CONSTANTS.POINTER_SOURCE);
-                dst = child.getPointer(CONSTANTS.POINTER_TARGET);
+                src = child.getPointer(CONSTANTS.POINTER_SOURCE).to;
+                dst = child.getPointer(CONSTANTS.POINTER_TARGET).to;
                 srcParent = this._client.getNode(src).getParentId();
                 dstParent = this._client.getNode(dst).getParentId();
+
             }
 
-            if(domainMeta.TYPE_INFO.isLoop(srcParent) || domainMeta.TYPE_INFO.isLoop(dstParent)){
-                //Move the child into the loop object
+            if((domainMeta.TYPE_INFO.isLoop(srcParent) && srcParent !== nodeId) || (domainMeta.TYPE_INFO.isLoop(dstParent) && dstParent !== nodeId)){
                 var dstParentId = domainMeta.TYPE_INFO.isLoop(srcParent) ? srcParent : dstParent,
-                    newNodeId = this._copyNode(child, dstParentId, false);
+                    j = parseInt(this._client.getNode(dstParentId).getAttribute('iterations'));
 
-                this._setNodeAttributes(newNodeId, childrenIds[i]);
+                this._addToParams(childrenIds[i], dstId);
+                this.extraCopying.push({ 'num': j - 1, 'id': childrenIds[i], 'dstId': dstId });
 
             }else if(domainMeta.TYPE_INFO.isLoop(childrenIds[i])){
                 var j = parseInt(child.getAttribute('iterations'));
-                this.boxes2process.push({ 'num': j, 'child': child, 'dstId': dstId });
+
+                this._cloneChildren(childrenIds[i], dstId, j);
             }else{
-                this._copyNode(child, dstId);
+
+                if(this._addToParams(childrenIds[i], dstId));
+                    n--;//Decrement if one instance of the object is added to this.params
+
+                if(n > 0)
+                    this.extraCopying.push({ 'num': n, 'id': childrenIds[i], 'dstId': dstId });
             }
+
+        }
+    };
+
+    GenerativeInterpreter.prototype._addToParams = function(nodeId, dstId){
+        var k = this.params.length;
+
+        while(--k >= 0 && this.params[k].parentId !== dstId);
+
+        if(k < 0){
+            this.params.push({ 'parentId': dstId });
+            k = this.params.length - 1;
         }
 
-        for( var k in this.original2copy ){
-            if( this.original2copy.hasOwnProperty(k) ){
-                this._setNodeAttributes( this.original2copy[k], k);
-            }
-        }
+        if(this.params[k][nodeId])
+            return false; //Not added - already exists in params
 
-        this.original2copy = {};
+        this.params[k][nodeId] = {};
+        return true;
     };
 
     GenerativeInterpreter.prototype._copyNode = function(node, dstId, store){
@@ -165,8 +206,8 @@ define(['logManager',
 
         while(i--){//Copy attributes
             var attrName = names[i],
-                attr = node.getAttribute(attrName),
-                newAttr = newNode.getEditableAttribute(attrName);
+                attr = node.getAttribute(attrName);
+            var newAttr = newNode.getEditableAttribute(attrName);
 
             if( typeof attr === "Object" ){
                 newAttr = attr;
