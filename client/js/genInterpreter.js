@@ -52,27 +52,10 @@ define(['logManager',
             this.original2copy[this.params[i].parentId] = this._client.copyMoreNodes(this.params[i]);
         }
 
-/*
-        this.boxes2process.push({ 'num': 1, 'child': this.currentObject, 'dstId': this.outputId });
-
-        //Generate Loops, etc
-        while(this.boxes2process.length){
-            var boxInfo = this.boxes2process.splice(0,1),
-                j = boxInfo[0].num,
-                child = boxInfo[0].child,
-                dstId = boxInfo[0].dstId;
-
-            while(j--){
-                this._cloneChildren(child, dstId);
-            }
-        }
-*/
-
-
         this._client.completeTransaction();
         this._client.startTransaction();
 
-        //Handle the 'extraCopying'
+        //Make any extra copies that were requested
         this.copyParams = {};
         while(this.extraCopying.length){
             var job = this.extraCopying.splice(0, 1)[0],
@@ -160,6 +143,9 @@ define(['logManager',
 
                 if(n > 0)
                     this.extraCopying.push({ 'num': n, 'id': childrenIds[i], 'dstId': dstId });
+
+                //if(child.getChildrenIds().length !== 0)
+                    //this._cloneChildren(childrenIds[i], 
             }
 
         }
@@ -180,22 +166,6 @@ define(['logManager',
 
         this.params[k][nodeId] = {};
         return true;
-    };
-
-    GenerativeInterpreter.prototype._copyNode = function(node, dstId, store){
-        var names = node.getAttributeNames(),
-            newNodeId,
-            newNode,
-            baseId = node.getBaseId(),
-            parentId = node.getParentId(),
-            pos = {};
-
-        newNodeId = this._client.createChild({ 'parentId': dstId, 'baseId': baseId, 'position': pos });
-
-        if(store !== false)
-            this.original2copy[node.getId()] = newNodeId;//Store the mapping
-
-        return newNodeId;
     };
 
     GenerativeInterpreter.prototype._setNodeAttributes = function(newNodeId, nodeId){
