@@ -32,9 +32,8 @@ define(['logManager',
     };
 
     PegasusInterpreter.prototype.onOneEvent = function(events){
-        this._runPegasusInterpreter();
-
         this._client.removeUI(this._territoryId);
+        this._runPegasusInterpreter();
     };
 
     PegasusInterpreter.prototype._runPegasusInterpreter = function(){
