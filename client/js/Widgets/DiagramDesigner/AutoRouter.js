@@ -87,82 +87,73 @@ define(['logManager'], function (logManager) {
        this.router = new AutoRouterGraph();
     };
 
-    var getClosestPorts = function(srcPorts, dstPorts, segmentPoints){
-        var i,
-            j,
-            dx,
-            dy,
-            srcP,
-            dstP,
-            minLength = -1,
-            srcConnectionPoints = [],
-            dstConnectionPoints = [],
-            cLength;
+    var getOptimalPorts = function(ports, tgt){
+        //I will get the dx, dy that to the src/dst target and then I will calculate
+        // a priority value that will rate the ports as candidates for the 
+        //given path
+        var srcC = new ArPoint(), //src center
+            tgt, //src target
+            vector,
+            port, //result
+            maxP = -1,
+            maxArea = 0,
+            i; 
 
-        //Make sure srcPorts, dstPorts are arrays of ports
-        if( srcPorts instanceof AutoRouterBox )
-            srcPorts = srcPorts.getPortList(); 
-        else if( srcPorts.ports && srcPorts.ports[0] instanceof AutoRouterPort )
-            srcPorts = srcPorts.ports; 
-        else
-            srcPorts = srcPorts instanceof Array ? srcPorts : [ srcPorts ];
+        //Get the center points of the src,dst ports
+        for(i = 0; i < ports.length; i++){
+            var sPoint = ports[i].getRect().getCenter();
+            srcC.x += sPoint.x;
+            srcC.y += sPoint.y;
 
-        if( dstPorts instanceof AutoRouterBox )
-            dstPorts = dstPorts.getPortList(); 
-        else if( dstPorts.ports && dstPorts.ports[0] instanceof AutoRouterPort )
-            dstPorts = dstPorts.ports; 
-        else
-            dstPorts = dstPorts instanceof Array ? dstPorts : [ dstPorts ];
+            //adjust maxArea
+            if(maxArea < ports[i].getTotalAvailableArea())
+                maxArea = ports[i].getTotalAvailableArea();
 
-        for(i = 0; i < srcPorts.length; i++){
-            srcConnectionPoints.push(srcPorts[i].getRect().getCenter());
-        }
-        for(i = 0; i < dstPorts.length; i++){
-            dstConnectionPoints.push(dstPorts[i].getRect().getCenter());
         }
 
+        //Get the average center point of src
+        srcC.x = srcC.x/ports.length;
+        srcC.y = srcC.y/ports.length;
 
-        if (segmentPoints && segmentPoints.length > 0) {
-            for (i = 0; i < srcConnectionPoints.length; i += 1) {
-                for (j = 0; j < dstConnectionPoints.length; j += 1) {
-                    dx = { "src": Math.abs(srcConnectionPoints[i].x - segmentPoints[0][1]),
-                        "dst": Math.abs(dstConnectionPoints[j].x - segmentPoints[segmentPoints.length - 1][0])};
+        //Get the directions
+        vector = (tgt.minus(srcC).getArray());
 
-                    dy =  { "src": Math.abs(srcConnectionPoints[i].y - segmentPoints[0][1]),
-                        "dst": Math.abs(dstConnectionPoints[j].y - segmentPoints[segmentPoints.length - 1][1])};
+        //Create priority function
+        function createPriority(port, center){
+            var priority = 0,
+                point = [ port.getRect().getCenter().x - center.x, port.getRect().getCenter().y - center.y],
+                lineCount = (port.getPointCount() || 1),
+                density = (port.getTotalAvailableArea()/lineCount)/maxArea,
+                major = Math.abs(vector[0]) > Math.abs(vector[1]) ? 0 : 1,
+                minor = (major+1)%2;
 
-                    cLength = Math.sqrt(dx.src * dx.src + dy.src * dy.src) + Math.sqrt(dx.dst * dx.dst + dy.dst * dy.dst);
+            if(point[major] > 0 === vector[major] > 0 //If they have the same parity, assign the priority to maximize that is > 1
+                    && (point[major] === 0) === (vector[major] === 0))//handling the === 0 error
+                priority = (Math.abs(vector[major])/Math.abs(vector[major] - point[major])) * 25 ; 
 
-                    if (minLength === -1 || minLength > cLength) {
-                        minLength = cLength;
-                        srcP = i;
-                        dstP = j;
-                    }
-                }
-            }
-        } else {
-            for (i = 0; i < srcConnectionPoints.length; i += 1) {
-                for (j = 0; j < dstConnectionPoints.length; j += 1) {
-                    dx = Math.abs(srcConnectionPoints[i].x - dstConnectionPoints[j].x);
-                    dy = Math.abs(srcConnectionPoints[i].y - dstConnectionPoints[j].y);
+            if(point[minor] > 0 === vector[minor] > 0//If they have the same parity, assign the priority to maximize that is < 1
+                    && (point[minor] === 0) === (vector[minor] === 0))//handling the === 0 error
+                priority += vector[minor] !== point[minor] ? (Math.abs(vector[minor])/Math.abs(vector[minor] - point[minor]))*1 : 0; 
 
-                    cLength = Math.sqrt(dx * dx + dy * dy);
+            //Adjust priority based on the density of the lines...
+            priority *= density;
 
-                    if (minLength === -1 || minLength > cLength) {
-                        minLength = cLength;
-                        srcP = i;
-                        dstP = j;
-                    }
-                }
+            return priority;
+        }
+
+        //Create priority values for each port.
+        for(i = 0; i < ports.length; i++){
+            var priority = createPriority(ports[i], srcC);
+            if( priority >= maxP ){
+                port = ports[i];
+                maxP = priority;
             }
         }
 
-        if(srcPorts[srcP].getOwner() === dstPorts[dstP].getOwner() && srcPorts.length-1 )
-            srcP = srcP + 1 % srcPorts.length;
+        assert(port.getOwner(), "ARGraph.getOptimalPorts: port have invalid owner");
 
-        return { "src": srcPorts[ srcP ], "dst": dstPorts[ dstP ] };
+        return port;
     };
-
 
     var CustomPathData = function (_x, _y){
         var version = CONNECTIONCUSTOMIZATIONDATAVERSION,
@@ -1300,17 +1291,19 @@ if(DEBUG && ArPointList.length > 0){
 
            this.getHeadEdgePtrs = function(start, end){
                 if( ArPointList.length < 2 )
-                    return ArPointList.length;
+                    return { 'pos': ArPointList.length };
 
-                var pos = 0;
+                var start,
+                    end,
+                    pos = 0;
                 assert( pos < ArPointList.length, "ArPointListPath.getHeadEdgePtrs: pos < ArPointList.length FAILED");
 
-                start.assign(ArPointList[pos++]); //&
+                start = ArPointList[pos++];
                 assert( pos < ArPointList.length, "ArPointListPath.getHeadEdgePtrs: pos < ArPointList.length FAILED");
 
-                end.assign(ArPointList[pos]); //&
+                end = ArPointList[pos]; 
 
-                return pos;
+                return { 'pos': pos, 'start': start, 'end': end };
             };
 
            this.getTailEdgePtrs = function(){
@@ -1434,11 +1427,11 @@ if(DEBUG && ArPointList.length > 0){
                 return pos;
             };
 
-           this.getEdgePosForStartPoint = function(startpoint){
+           this.getEdgePosForStartPoint = function(start){
                 var pos = 0;
                 while( pos < ArPointList.length )
                 {
-                    if( ArPointList[pos++] === startpoint )
+                    if( ArPointList[pos++] === start)
                     {
                         assert( pos < ArPointList.length, "ArPointListPath.getEdgePosForStartPoint: pos < ArPointList.length FAILED" );
                         pos--;
@@ -1932,32 +1925,24 @@ if(DEBUG && ArPointList.length > 0){
             this.cx = x;
             this.cy = y;
 
-            //functions
-            this.equals = equals;
-            this.add = add;
-            this.subtract = subtract;
-            this.plus = plus;
-            this.minus = minus;
-            this.assign = assign;
-
-            function equals(otherSize){
+            this.equals = function(otherSize){
                 if( this.cx === otherSize.cx && this.cy === otherSize.cy)
                     return true;
 
                 return false;
             }
 
-            function add(otherSize){ //equivalent to +=
+            this.add = function(otherSize){ //equivalent to +=
                 this.cx += otherSize.cx;
                 this.cy += otherSize.cy;
             }
 
-            function subtract(otherSize){
+            this.subtract = function(otherSize){
                 this.cx -= otherSize.cx;
                 this.cy -= otherSize.cy;
             }
 
-            function plus(otherObject){ //equivalent to +
+            this.plus = function(otherObject){ //equivalent to +
                 var objectCopy = undefined;
 
                 if(otherObject instanceof ArSize){
@@ -1978,7 +1963,7 @@ if(DEBUG && ArPointList.length > 0){
                 return objectCopy;
             }
 
-            function minus(otherObject){ //equivalent to +
+            this.minus = function(otherObject){ //equivalent to -
                 var objectCopy = undefined;
 
                 if(otherObject instanceof ArSize){
@@ -1999,9 +1984,16 @@ if(DEBUG && ArPointList.length > 0){
                 return objectCopy;
             }
 
-            function assign(otherSize){
+            this.assign = function(otherSize){
                 this.cx = otherSize.cx;
                 this.cy = otherSize.cy;
+            }
+
+            this.getArray = function(){
+                var res = [];
+                res.push(this.cx);
+                res.push(this.cy);
+                return res;
             }
         };
 
@@ -2125,12 +2117,14 @@ if(DEBUG && ArPointList.length > 0){
                     return;
 
                 var index = ports.indexOf(port),
-                    delPort;
+                    delPort,
+                    graph = owner;
 
                 assert(index !== -1, "ARBox.deletePort: index !== -1 FAILED");
 
-                delPort = ports.splice(index, 1);
-                delPort.setOwner(null);
+                graph.deleteEdges(port);
+                delPort = ports.splice(index, 1)[0];
+                delPort.destroy();
                 delPort = null;
 
                 atomic = false;
@@ -2752,7 +2746,7 @@ if(DEBUG && ArPointList.length > 0){
                         currEdgeIndex = pointList.length - 2,
                         pos = ptrsObject.pos; 
                                              
-                    while( -1 < pos && pos < pointList.getLength()){
+                    while( pointList.getLength() && pos >= 0){
 
                         var dir = getDir(endpoint[0].minus(startpoint[0]));
 
@@ -3018,7 +3012,8 @@ if(DEBUG && ArPointList.length > 0){
             };        
 
              this.dumpEdges = function(msg){
-                var edge = order_first;
+                var edge = order_first,
+                    total = 1;
                 console.log(msg);
 
                 while( edge !== null ){
@@ -3026,8 +3021,21 @@ if(DEBUG && ArPointList.length > 0){
                         + '\t\t\t(' + (edge.getEdgeFixed() ? "FIXED" : "MOVEABLE" ) + ')\t\t' 
                         + (edge.getBracketClosing() ? "Bracket Closing" : (edge.getBracketOpening() ? "Bracket Opening" : "")));
                     edge = edge.getOrderNext();
+                    total++;
                 }
+
+                console.log("Total Edges: " + total);
             };
+
+             this.getEdgeCount = function(){
+                 var edge = order_first,
+                     total = 1;
+                 while(edge !== null){
+                     edge = edge.getOrderNext();
+                     total++;
+                 }
+                 return total;
+             };
                    
                 //--Private Functions
             function position_GetRealY(edge, y){
@@ -3295,10 +3303,7 @@ if(DEBUG && ArPointList.length > 0){
                 assert( edge !== null, "AREdgeList.Delete: edge !== null FAILED" );
 
                 self.remove(edge);
-
                 edge.setOwner(null);
-
-                edge = undefined;
             };
 
                 //-- Private
@@ -4202,6 +4207,8 @@ if(DEBUG && ArPointList.length > 0){
             selfPoints.push(new ArPoint(ED_MAXCOORD, ED_MAXCOORD));
             selfPoints.push(new ArPoint(ED_MINCOORD, ED_MAXCOORD));
 
+            this.deleteEdges = deleteEdges;
+
             this.getSelfPoints = function(){
                 return selfPoints;
             }
@@ -4259,7 +4266,7 @@ if(DEBUG && ArPointList.length > 0){
 
                     delete boxes[box.getID()];
 
-                }else{
+                }else if(box instanceof AutoRouterPath){ //ARPath
                     var path = box;
                     deleteEdges(path);
 
@@ -4680,38 +4687,13 @@ if(DEBUG && ArPointList.length > 0){
                 var ports = path.calculateStartEndPorts(),
                     startport = ports.src,
                     endport = ports.dst,
-                    startdir = path.getStartDir(),
-                    startportHasLimited = false,
-                    startportCanHave = true,
-                    startpoint,
-                    endpoint;
+                    startpoint = path.getStartPoint(),
+                    endpoint = path.getEndPoint();
 
-                if (startdir != Dir_None) {
-                    startportHasLimited = startport.hasLimitedDirs();
-                    startportCanHave = startport.canHaveStartEndPointOn(startdir, true);
-                }
-                if( startdir === Dir_None ||							// recalc startdir if empty
-                        startportHasLimited && !startportCanHave)		// or is limited and userpref is invalid
-                {
-                    startdir = startport.getStartEndDirTo(endport.getCenter(), true);
-                }
+                //TODO FIXME If already has a startpoint, use that instead
 
-                var enddir = path.getEndDir(),
-                    endportHasLimited = false,
-                    endportCanHave = true;
-
-                if (enddir != Dir_None) {
-                    endportHasLimited = endport.hasLimitedDirs();
-                    endportCanHave = endport.canHaveStartEndPointOn(enddir, false);
-                }
-                if( enddir === Dir_None ||							// like above
-                        endportHasLimited && !endportCanHave)
-                {
-                    enddir = endport.getStartEndDirTo(startport.getCenter(), false, startport === endport ? startdir : Dir_None );
-                }
-
-                startpoint = startport.createStartEndPointTo(endport.getCenter(), startdir);
-                endpoint = endport.createStartEndPointTo(startpoint, enddir);
+                assert(startport.hasPoint(startpoint), "ARGraph.connect: startport.hasPoint(startpoint) FAILED");
+                assert(endport.hasPoint(endpoint), "ARGraph.connect: endport.hasPoint(endpoint) FAILED");
 
                 if( startpoint.equals(endpoint) )
                     stepOneInDir(startpoint, nextClockwiseDir(startdir));
@@ -5301,10 +5283,10 @@ if(DEBUG && ArPointList.length > 0){
                 var hlist = getEdgeList(ishorizontal),
                     vlist = getEdgeList(!ishorizontal);
 
-                var ppedge = hlist.getEdgeByPointer(pppoint, ppoint),
-                    pedge = vlist.getEdgeByPointer(ppoint, point),
-                    nedge = hlist.getEdgeByPointer(point, npoint[0]),
-                    nnedge = vlist.getEdgeByPointer(npoint[0], nnpoint);
+                var ppedge = hlist.getEdgeByPointer(pppoint),
+                    pedge = vlist.getEdgeByPointer(ppoint),
+                    nedge = hlist.getEdgeByPointer(point),
+                    nnedge = vlist.getEdgeByPointer(npoint[0]);
 
                 assert( ppedge !== null && pedge !== null && nedge !== null && nnedge !== null, "ARGraph.deleteTwoEdgesAt:  ppedge !== null && pedge !== null && nedge !== null && nnedge !== null FAILED");
 
@@ -5993,7 +5975,9 @@ if(DEBUG && ArPointList.length > 0){
             };
 
             this.autoRoute = function(){
+var oldTime = new Date().getTime();
                 connectAllDisconnectedPaths();
+//console.log("1: " + (new Date().getTime() - oldTime));oldTime = new Date().getTime();
 
                 var updated = 0,
                     last = 0,       // identifies the last change to the path
@@ -6003,6 +5987,7 @@ if(DEBUG && ArPointList.length > 0){
 
                 while( c > 0 )
                 {
+//console.log("2: " + (new Date().getTime() - oldTime));oldTime = new Date().getTime();
                     if( c > 0 )
                     {
                         if( last === 1 )
@@ -6016,6 +6001,7 @@ if(DEBUG && ArPointList.length > 0){
                         }
                     }
 
+//console.log("3: " + (new Date().getTime() - oldTime));oldTime = new Date().getTime();
                     if( c > 0 )
                     {
                         if( last === 2 )
@@ -6039,6 +6025,7 @@ if(DEBUG && ArPointList.length > 0){
                         }
                     }
 
+//console.log("4: " + (new Date().getTime() - oldTime));oldTime = new Date().getTime();
                     if( c > 0 )
                     {
                         if( last === 3 )
@@ -6062,6 +6049,7 @@ if(DEBUG && ArPointList.length > 0){
                         }
                     }
 
+//console.log("5: " + (new Date().getTime() - oldTime));oldTime = new Date().getTime();
                     if( c > 0 )
                     {
                         if( last === 4 )
@@ -6085,6 +6073,7 @@ if(DEBUG && ArPointList.length > 0){
                         }
                     }
 
+//console.log("6: " + (new Date().getTime() - oldTime));oldTime = new Date().getTime();
                     if( c > 0 )
                     {
                         if( last === 5 )
@@ -6108,6 +6097,7 @@ if(DEBUG && ArPointList.length > 0){
                         }
                     }
 
+//console.log("7: " + (new Date().getTime() - oldTime));oldTime = new Date().getTime();
                     if( c > 0 )
                     {
                         if( last === 6 )
@@ -6121,6 +6111,7 @@ if(DEBUG && ArPointList.length > 0){
                         }
                     }
 
+//console.log("8: " + (new Date().getTime() - oldTime));oldTime = new Date().getTime();
                     if( c > 0 )
                     {
                         if( last === 7 )
@@ -6148,6 +6139,7 @@ if(DEBUG && ArPointList.length > 0){
                 var pathiter = 0;
 
                 //		HRESULT hr = S_OK;
+//console.log("9: " + (new Date().getTime() - oldTime));oldTime = new Date().getTime();
                 while (pathiter < paths.length)
                 {
                     var path = paths[pathiter];
@@ -6180,6 +6172,7 @@ if(DEBUG && ArPointList.length > 0){
                     pathiter++;
                 }
 
+//console.log("END: " + (new Date().getTime() - oldTime));oldTime = new Date().getTime();
                 _logger.info("c has been decremented " + (100 - c) + " times\nlast is " + last + 
                 "\nd is " + d + "\ndm is " + dm);
                 return updated;
@@ -6365,6 +6358,8 @@ if(DEBUG && ArPointList.length > 0){
 
     var AutoRouterPath = function (){
             var owner = null,
+                startpoint,
+                endpoint,
                 startports,
                 endports,
                 startport = null,
@@ -6375,8 +6370,7 @@ if(DEBUG && ArPointList.length > 0){
                 customPathData = [],
                 customizationType = "Points",
                 pathDataToDelete = [],
-                points = new ArPointListPath(),
-                self = this;
+                points = new ArPointListPath();
 
             //Functions
 
@@ -6438,6 +6432,9 @@ if(DEBUG && ArPointList.length > 0){
                     newPorts = [newPorts];
 
                 startports = newPorts;
+
+                if(startport)
+                    this.calculateStartPorts();
             };
 
             this.setEndPorts = function(newPorts){
@@ -6445,6 +6442,9 @@ if(DEBUG && ArPointList.length > 0){
                     newPorts = [newPorts];
 
                 endports = newPorts;
+
+                if(endport)
+                    this.calculateEndPorts();
             };
 
             this.clearPorts = function(){
@@ -6453,11 +6453,13 @@ if(DEBUG && ArPointList.length > 0){
             };
 
             this.getStartPort = function(){
-                return startport;
+                assert(startports.length, "ARPort.getStartPort: Can't retrieve start port.");
+                return startport || startports[0];
             };
 
             this.getEndPort = function(){
-                return endport;
+                assert(endports.length, "ARPort.getEndPort: Can't retrieve end port.");
+                return endport || endports[0];
             };
 
             this.getStartPorts = function(){
@@ -6469,15 +6471,24 @@ if(DEBUG && ArPointList.length > 0){
             };
 
             this.calculateStartEndPorts = function(){
+                return {'src': this.calculateStartPorts(), 'dst': this.calculateEndPorts() };
+            };
+
+            this.calculateStartPorts = function(){
                 var srcPorts = [],
-                    dstPorts = [],
+                    tgt,
                     i = startports.length,
                     result = null;
 
                 assert(startports.length > 0, "ArPath.calculateStartEndPorts: startports cannot be empty!");
-                assert(endports.length > 0, "ArPath.calculateStartEndPorts: endports cannot be empty!");
 
+                //Remove startpoint
+                if(startport && startport.hasPoint(startpoint))
+                    startport.removePoint(startpoint);
+
+                //Get available ports
                 while(i--){
+                    assert(startports[i].getOwner(), "ARPath.calculateStartEndPorts: startport has invalid owner!");
                     if(startports[i].isAvailable())
                         srcPorts.push(startports[i]);
                 }
@@ -6485,8 +6496,58 @@ if(DEBUG && ArPointList.length > 0){
                 if(srcPorts.length === 0)
                     srcPorts = startports;
 
-                i = endports.length;
+                //Getting target
+                if(customPathData.length){
+                    tgt = new ArPoint(customPathData[0].getX(), customPathData[0].getY());
+                }else{
+                    var x = 0,
+                        y = 0;
+
+                    i = endports.length;
+                    while(i--){
+                        var pt = endports[i].getRect().getCenter();
+                        x += pt.x;
+                        y += pt.y;
+                    }
+                    tgt = new ArPoint(x/endports.length, y/endports.length);
+                }
+
+                //Get the optimal port to the target
+                startport = getOptimalPorts(srcPorts, tgt);
+
+                //Create a startpoint at the port
+                var startdir = this.getStartDir(),
+                    startportHasLimited = false,
+                    startportCanHave = true;
+
+                if (startdir !== Dir_None) {
+                    startportHasLimited = startport.hasLimitedDirs();
+                    startportCanHave = startport.canHaveStartEndPointOn(startdir, true);
+                }
+                if( startdir === Dir_None ||							// recalc startdir if empty
+                        startportHasLimited && !startportCanHave){		// or is limited and userpref is invalid
+                    startdir = startport.getStartEndDirTo(tgt, true);
+                }
+
+                startpoint = startport.createStartEndPointTo(tgt, startdir);
+                return startport;
+            };
+
+            this.calculateEndPorts = function(){
+                var dstPorts = [],
+                    tgt,
+                    i = endports.length,
+                    result = null;
+
+                assert(endports.length > 0, "ArPath.calculateStartEndPorts: endports cannot be empty!");
+
+                //Remove old endpoint
+                if(endport && endport.hasPoint(endpoint))
+                    endport.removePoint(endpoint);
+
+                //Get available ports
                 while(i--){
+                    assert(endports[i].getOwner(), "ARPath.calculateStartEndPorts: endport has invalid owner!");
                     if(endports[i].isAvailable())
                         dstPorts.push(endports[i]);
                 }
@@ -6494,14 +6555,44 @@ if(DEBUG && ArPointList.length > 0){
                 if(dstPorts.length === 0)
                     dstPorts = endports;
 
-                if(dstPorts.length > 0 && srcPorts.length > 0){
-                    result = getClosestPorts(srcPorts, dstPorts, customPathData);
-                    startport = result.src;
-                    endport = result.dst;
+                //Getting target
+                if(customPathData.length){
+                    i = customPathData.length - 1;
+                    tgt = new ArPoint(customPathData[i].getX(), customPathData[i].getY());
+                }else{
+                    var x = 0,
+                        y = 0;
+
+                    i = startports.length;
+                    while(i--){
+                        var pt = startports[i].getRect().getCenter();
+                        x += pt.x;
+                        y += pt.y;
+                    }
+                    tgt = new ArPoint(x/startports.length, y/startports.length);
                 }
 
-                return result;
-            }
+                //Get the optimal port to the target
+                endport = getOptimalPorts(dstPorts, tgt);
+
+                //Create endpoint at the port
+                var enddir = this.getEndDir(),
+                    startdir = this.getStartDir(),
+                    endportHasLimited = false,
+                    endportCanHave = true;
+
+                if (enddir !== Dir_None) {
+                    endportHasLimited = endport.hasLimitedDirs();
+                    endportCanHave = endport.canHaveStartEndPointOn(enddir, false);
+                }
+                if( enddir === Dir_None ||							// like above
+                        endportHasLimited && !endportCanHave){
+                    enddir = endport.getStartEndDirTo(tgt, false, startport === endport ? startdir : Dir_None );
+                }
+
+                endpoint = endport.createStartEndPointTo(tgt, enddir);
+                return endport;
+            };
 
             this.isConnected = function(){
                 return (state & ARPATHST_Connected) != 0;
@@ -6530,12 +6621,17 @@ if(DEBUG && ArPointList.length > 0){
 
             this.getStartPoint = function(){
                 //assert( points.getLength() >= 2, "ARPath.getStartPoint: points.getLength() >= 2 FAILED");
-                return points.get(0)[0];
+                if(points.getLength())
+                    assert(startpoint === points.get(0)[0], "ARPath.getEndPoint: startpoint === points.get(0)[0] FAILED");
+
+                return startpoint;
             };
 
             this.getEndPoint = function(){
-                assert( points.getLength() >= 2, "ARPath.getEndPoint: points.getLength() >= 2 FAILED");
-                return points.get(points.getLength() - 1)[0];
+                if(points.getLength())
+                    assert(endpoint === points.get(points.getLength() - 1)[0], "ARPath.getEndPoint: endpoint === points.get(points.getLength() - 1)[0] FAILED");
+
+                return endpoint;
             };
 
             this.getStartBox = function(){
@@ -6836,9 +6932,9 @@ if(DEBUG && ArPointList.length > 0){
                 }
 
                 var currEdgeIndex = 0,
-                    tmp = points.getHeadEdgePtrs(startpoint, endpoint),
-                    endpoint = tmp.end,
-                    startpoint = tmp.start,
+                    tmp = points.getHeadEdgePtrs(),
+                    end = tmp.end,
+                    start = tmp.start,
                     pos = tmp.pos;
 
                 while (pos < points.getLength()){
@@ -6847,7 +6943,7 @@ if(DEBUG && ArPointList.length > 0){
                         var increment = true;
                         if (currEdgeIndex === (customPathData[ii]).getEdgeIndex()) {
                             if ((customPathData[ii]).getType() === SimpleEdgeDisplacement) {
-                                var dir = getDir(endpoint.minus(startpoint)),
+                                var dir = getDir(end.minus(start)),
                                     isHorizontalVar = (isHorizontal(dir) != 0),
                                     doNotApply = false;
                                 if ((customPathData[ii]).isHorizontalOrVertical() === isHorizontalVar) {
@@ -6870,11 +6966,11 @@ if(DEBUG && ArPointList.length > 0){
                                     }
                                     if (!doNotApply) {
                                         if ((customPathData[ii]).isHorizontalOrVertical()) {
-                                            startpoint.y = yToSet;
-                                            endpoint.y = yToSet;
+                                            start.y = yToSet;
+                                            end.y = yToSet;
                                         } else {
-                                            startpoint.x = xToSet;
-                                            endpoint.x = xToSet;
+                                            start.x = xToSet;
+                                            end.x = xToSet;
                                         }
                                     }
                                 }
@@ -6891,10 +6987,10 @@ if(DEBUG && ArPointList.length > 0){
                             ++ii;
                     }
 
-                    var tmp = points.getNextEdgePtrs(pos, startpoint, endpoint);
+                    var tmp = points.getNextEdgePtrs(pos, start, end);
                     pos = tmp.pos; 
-                    startpoint = tmp.start;
-                    endpoint = tmp.end;
+                    start = tmp.start;
+                    end = tmp.end;
 
                     currEdgeIndex++;
                 }
@@ -7066,11 +7162,13 @@ if(DEBUG && ArPointList.length > 0){
             this.createStartEndPointOn = createStartEndPointOn;
             this.removePoint = removePoint;
             this.getPoints = getPoints;
+            this.getPointCount = getPointCount;
 
             //AvailableAreas Methods
             this.isAvailable = isAvailable;
             this.resetAvailableArea = resetAvailableArea;
             this.adjustAvailableArea = adjustAvailableArea;
+            this.getTotalAvailableArea = getTotalAvailableArea;
 
             function calculateSelfPoints(){
                 selfPoints = [];
@@ -7437,7 +7535,6 @@ if(DEBUG && ArPointList.length > 0){
                     _logger.warning("point (" + pt.x + ", " + pt.y + ") was not removed from port");
             }
 
-//DEBUGGING TOOL
             this.hasPoint = function(pt){
                 var i = 0;
 
@@ -7452,10 +7549,20 @@ if(DEBUG && ArPointList.length > 0){
 
                 return false;
             };
-//DEBUGGING TOOL
 
             function getPoints(){
                 return points;
+            }
+
+            function getPointCount(){
+                var i = 0,
+                    count = 0;
+
+                while( i < 4 ){ //Check all sides for the point
+                    count += points[i++].length;
+                }
+
+                return count;
             }
 
             function resetAvailableArea(){
@@ -7497,6 +7604,18 @@ if(DEBUG && ArPointList.length > 0){
                 }
             }
 
+            function getTotalAvailableArea(){
+                var i = availableArea.length,
+                    length = new ArSize(); 
+
+                while(i--){
+                    length.add(availableArea[i][1].minus(availableArea[i][0]));
+                }
+
+                assert(length.cx === 0 || length.cy === 0, "ARPort.getTotalAvailableArea: length[0] === 0 || length[1] === 0 FAILED");
+                return length.cx || length.cy;
+            }
+
             function isAvailable(){
                 return availableArea.length > 0;
             }   
@@ -7507,6 +7626,60 @@ if(DEBUG && ArPointList.length > 0){
             //Stores a box with ports used to connect to the box
             this.box = b;
             this.ports = p;
+        };
+
+        var ArPathObject = function(i, p, s, d){
+            //Stores a path with ports used 
+            this.id = i;
+            this.path = p;
+            this.srcPorts = s;
+            this.dstPorts = d;
+            var srcBox = calcBoxId(s),
+                dstBox = calcBoxId(d);
+
+            function calcBoxId(ports){
+                for(var i in ports){
+                    if(ports.hasOwnProperty(i) && ports[i].getOwner()){
+                        return ports[i].getOwner().getID();
+                    }
+                }
+            }
+
+            this.getSrcBoxId = function(){
+                if(this.srcPorts && calcBoxId(this.srcPorts))
+                    return srcBox;
+                return null;
+            };
+
+            this.getDstBoxId = function(){
+                if(this.dstPorts && calcBoxId(this.dstPorts))
+                    return dstBox;
+                return null;
+            };
+
+            this.updateSrcPorts = function(){
+                var src = [];
+
+                for(var i in this.srcPorts){
+                    if(this.srcPorts.hasOwnProperty(i))
+                        src.push(this.srcPorts[i]);
+                }
+
+                this.path.setStartPorts(src);
+                srcBox = calcBoxId(this.srcPorts);
+            };
+
+            this.updateDstPorts = function(){
+                var dst = [];
+
+                for(var i in this.dstPorts){
+                    if(this.dstPorts.hasOwnProperty(i))
+                        dst.push(this.dstPorts[i]);
+                }
+
+                this.path.setEndPorts(dst);
+                dstBox = calcBoxId(this.dstPorts);
+            };
         };
 
         AutoRouter.prototype.clear = function(){
@@ -7815,12 +7988,23 @@ if(DEBUG && ArPointList.length > 0){
             throw "AutoRouter:_createPath missing source or destination";
     
         var id = a.id,
-            src = a.src, 
-            dst = a.dst, 
             autoroute = a.autoroute || true,
             startDir = a.startDirection || a.start,
             endDir = a.endDirection || a.end,
+            src = [], 
+            dst = [],
             path;
+
+        for(var i in a.src){
+            if(a.src.hasOwnProperty(i)){
+                src.push(a.src[i]);
+            }
+        }
+        for(var i in a.dst){
+            if(a.dst.hasOwnProperty(i)){
+                dst.push(a.dst[i]);
+            }
+        }
     
         assert(src instanceof AutoRouterPort
                     || src instanceof Array || src.ports[0] instanceof AutoRouterPort, "AutoRouter:_createPath: src is not recognized as an AutoRouterPort");
@@ -7847,12 +8031,13 @@ if(DEBUG && ArPointList.length > 0){
             path.setEndDir(ARPATH_Default);
         }
     
-        this.paths[id] = path;
+        var pathData = new ArPathObject(id, path, a.src, a.dst);
+        this.paths[id] = pathData;
     
         //Register the path under box id
-        this.boxId2Path[src[0].getOwner().getID()].out.push(path);//Assuming all ports belong to the same box
-        this.boxId2Path[dst[0].getOwner().getID()].in.push(path);//so the specific port to check is trivial
-        return path;
+        this.boxId2Path[src[0].getOwner().getID()].out.push(pathData);//Assuming all ports belong to the same box
+        this.boxId2Path[dst[0].getOwner().getID()].in.push(pathData);//so the specific port to check is trivial
+        return pathData;
     };
     
     AutoRouter.prototype.autoroute = function(){ 
@@ -7861,7 +8046,7 @@ if(DEBUG && ArPointList.length > 0){
 
     AutoRouter.prototype.getPathPoints = function(pathId){
         assert(this.paths[pathId] !== undefined, "AutoRouter:getPath requested path does not match any current paths");
-        var path = this.paths[pathId],
+        var path = this.paths[pathId].path,
             points = path.getPointList(),
             i = -1,
             res = [];
@@ -7894,36 +8079,79 @@ if(DEBUG && ArPointList.length > 0){
     
         //Reconnect paths to ports
         while( i-- ){
-            var pathSrc = paths.in[i].getStartPorts();
-                //newEndPort = this._getClosestPorts( pathSrc, boxObject ).dst;
-            //if( boxObject.ports.indexOf( newEndPort ) !== -1 ){ //Only reconnect connections to the box - not to any child ports!
-                paths.in[i].setEndPorts( ports );
-                this.router.disconnect( paths.in[i] );
-            //}
+            var pathSrc = paths.in[i].path.getStartPorts();
+                paths.in[i].path.setEndPorts( ports );
+                this.router.disconnect( paths.in[i].path );
         }
     
         i = paths.out.length;
         while( i-- ){
-            var pathDst = paths.out[i].getEndPorts();
-                //newStartPort = this._getClosestPorts( boxObject, pathDst ).src;
-            //if( boxObject.ports.indexOf( newStartPort) !== -1 ){ //Only reconnect connections to the box - not to any child ports!
-                paths.out[i].setStartPorts( ports );
-                this.router.disconnect( paths.out[i] );
-            //}
+            var pathDst = paths.out[i].path.getEndPorts();
+                paths.out[i].path.setStartPorts( ports );
+                this.router.disconnect( paths.out[i].path );
         }
     };
     
     AutoRouter.prototype.setConnectionInfo = function(boxObject, connArea){
-        var box = boxObject.box,
+        var pathObjects = this.boxId2Path[boxObject.box.getID()],
             oldPorts = boxObject.ports,
+            box = boxObject.box,
+            i = pathObjects.out.length,
             ports;
     
-    
-        while( oldPorts.length ){
-            box.deletePort(oldPorts[0]);
+        ports = this.addPort(box, connArea);//Get new ports
+
+        while(i--){//Update the paths with deleted ports
+            var hasSrc = false;//Used to see if the path should be removed
+
+            for(var srcPort in pathObjects.out[i].srcPorts){
+                if(pathObjects.out[i].srcPorts.hasOwnProperty(srcPort)){
+                    if(ports.hasOwnProperty(srcPort)){
+                        pathObjects.out[i].srcPorts[srcPort] = ports[srcPort];
+                        hasSrc = true;
+                    }else{
+                        delete pathObjects.out[i].srcPorts[srcPort];
+                    }
+                }
+            }
+            if(!hasSrc){
+                this.remove(pathObjects.out[i].id);
+            }else{
+                this.router.disconnect(pathObjects.out[i].path);
+                pathObjects.out[i].updateSrcPorts();
+            }
+        }
+
+        i = pathObjects.in.length;
+        while(i--){
+
+            var hasDst = false;
+            for(var dstPort in pathObjects.in[i].dstPorts){
+                if(pathObjects.in[i].dstPorts.hasOwnProperty(dstPort)){
+                    if(ports.hasOwnProperty(dstPort)){
+                        pathObjects.in[i].dstPorts[dstPort] = ports[dstPort];
+                        hasDst = true;
+                    }else{
+                        delete pathObjects.in[i].dstPorts[dstPort];
+                    }
+                }
+            }
+
+            //Remove path if applicable
+            if(!hasDst){
+                this.remove(pathObjects.in[i].id);
+            }else{
+                this.router.disconnect(pathObjects.in[i].path);
+                pathObjects.in[i].updateDstPorts();
+            }
         }
     
-        ports = this.addPort(box, connArea);
+        for(var oldPort in oldPorts){//Remove old ports
+            if(oldPorts.hasOwnProperty(oldPort)){
+                box.deletePort(oldPorts[oldPort]);
+            }
+        }
+
         boxObject.ports = ports;
     
         return new ArBoxObject(box, ports);
@@ -7938,21 +8166,25 @@ if(DEBUG && ArPointList.length > 0){
             this.router.deleteBox(item);
     
         }else if(this.paths[item] !== undefined){
-            if(this.paths[item] instanceof AutoRouterPath){
-                var i,
-                    path = this.paths[item];
-
-                if(path.getStartPort() && path.getStartPort().getOwner() instanceof AutoRouterBox){
-                    i = this.boxId2Path[path.getStartPort().getOwner().getID()].out.indexOf(path);//Remove from boxId2Path dictionary
-                    this.boxId2Path[path.getStartPort().getOwner().getID()].out.splice(i, 1);
+            if(this.paths[item].path instanceof AutoRouterPath){
+                var pathData = this.paths[item],
+                    path = pathData.path,
+                    srcBoxId = pathData.getSrcBoxId(),
+                    dstBoxId = pathData.getDstBoxId(),
+                    i;
+                    
+                if(srcBoxId){
+                    i = this.boxId2Path[srcBoxId].out.indexOf(pathData);//Remove from boxId2Path dictionary
+                    this.boxId2Path[srcBoxId].out.splice(i, 1);
                 }
 
-                if(path.getEndPort() && path.getEndPort().getOwner() instanceof AutoRouterBox){
-                    i = this.boxId2Path[path.getEndPort().getOwner().getID()].in.indexOf(path);
-                    this.boxId2Path[path.getEndPort().getOwner().getID()].in.splice(i, 1);
+                //if(path.getEndPort() && path.getEndPort().getOwner() instanceof AutoRouterBox){
+                if(dstBoxId){
+                    i = this.boxId2Path[dstBoxId].in.indexOf(pathData);
+                    this.boxId2Path[dstBoxId].in.splice(i, 1);
                 }
 
-                this.router.deletePath(path); //This should remove it from boxId2Path dictionary also
+                this.router.deletePath(path); 
             }
             delete this.paths[item]; //Remove dictionary entry
     
@@ -7975,8 +8207,8 @@ if(DEBUG && ArPointList.length > 0){
         this.router.setBuffer( Math.floor(min/2) );
     };
     
-    AutoRouter.prototype.setPathCustomPoints = function( args ){ //args.path = [ [x, y], [x2, y2], ... ]
-        var path = this.paths[args.path],
+    AutoRouter.prototype.setPathCustomPoints = function( args ){ //args.points = [ [x, y], [x2, y2], ... ]
+        var path = this.paths[args.path].path,
             points = [],
             i = 0;
         if( path === undefined )
@@ -7996,7 +8228,7 @@ if(DEBUG && ArPointList.length > 0){
         path.setCustomPathData( points );
     
     };
-    
+
     return AutoRouter;
     
 });
