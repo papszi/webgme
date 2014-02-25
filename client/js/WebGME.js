@@ -8,6 +8,7 @@ define(['logManager',
     'bin/getconfig',
     'text!package.json',
     'js/client',
+    'js/Constants',
     'clientUtil',
     'js/Utils/GMEConcepts',
     'js/Utils/GMEVisualConcepts',
@@ -19,12 +20,14 @@ define(['logManager',
     'js/PanelManager/PanelManager',
     './WebGME.History',
     'js/Utils/METAAspectHelper',
+    'js/Utils/PreferencesHelper',
     'js/ConstraintManager/ConstraintManager',
     'js/pegasusInterpreter',
     'js/genInterpreter'], function (logManager,
                                             CONFIG,
                                             packagejson,
                                             Client,
+                                            CONSTANTS,
                                             util,
                                             GMEConcepts,
                                             GMEVisualConcepts,
@@ -36,10 +39,10 @@ define(['logManager',
                                             PanelManager,
                                             WebGMEHistory,
                                             METAAspectHelper,
+                                            PreferencesHelper,
                                             ConstraintManager,
                                             PegasusInterpreter,
                                             genInterpreter) {
-
     var npmJSON = JSON.parse(packagejson);
     WebGMEGlobal.version = npmJSON.version;
 
@@ -71,6 +74,7 @@ define(['logManager',
             GMEVisualConcepts.initialize(client);
 
             METAAspectHelper.initialize(client);
+            PreferencesHelper.initialize(client);
 
             ExportManager.initialize(client);
             ImportManager.initialize(client);
@@ -111,8 +115,9 @@ define(['logManager',
                 } else {
                     new PegasusInterpreter(client);
                     new genInterpreter(client);
-                    client.connectToDatabaseAsync({'open': true,
-                                                    'project': projectToLoad || CONFIG.project}, function (err) {
+                    projectToLoad = projectToLoad === "" ? CONFIG.project : projectToLoad;
+                    client.connectToDatabaseAsync({'open': projectToLoad,
+                                                    'project': projectToLoad}, function (err) {
                         if (err) {
                             logger.error(err);
                         } else {
@@ -135,6 +140,9 @@ define(['logManager',
 
         selectObject = function () {
             if (objectToLoad && objectToLoad !== "") {
+                if (objectToLoad.toLowerCase() === 'root') {
+                    objectToLoad = CONSTANTS.PROJECT_ROOT_ID;
+                }
                 setTimeout(function () {
                     client.setSelectedObjectId(objectToLoad);
                 }, 1000);

@@ -123,7 +123,7 @@ define(['logManager'], function (logManager) {
             var priority = 0,
                 point = [ port.getRect().getCenter().x - center.x, port.getRect().getCenter().y - center.y],
                 lineCount = (port.getPointCount() || 1),
-                density = (port.getTotalAvailableArea()/lineCount)/maxArea,
+                density = (port.getTotalAvailableArea()/lineCount)/maxArea || 1, //If there is a problem with maxArea, just ignore density
                 major = Math.abs(vector[0]) > Math.abs(vector[1]) ? 0 : 1,
                 minor = (major+1)%2;
 
@@ -6428,9 +6428,6 @@ var oldTime = new Date().getTime();
             };
 
             this.setStartPorts = function(newPorts){
-                if(!(newPorts instanceof Array))
-                    newPorts = [newPorts];
-
                 startports = newPorts;
 
                 if(startport)
@@ -6438,9 +6435,6 @@ var oldTime = new Date().getTime();
             };
 
             this.setEndPorts = function(newPorts){
-                if(!(newPorts instanceof Array))
-                    newPorts = [newPorts];
-
                 endports = newPorts;
 
                 if(endport)
@@ -6495,6 +6489,16 @@ var oldTime = new Date().getTime();
 
                 if(srcPorts.length === 0)
                     srcPorts = startports;
+
+                //Preventing same start/endport
+                if(endport && srcPorts.length > 1){
+                    i = srcPorts.length;
+                    while(i--){
+                        if(srcPorts[i] === startport)
+                            srcPorts.splice(i, 1);
+                    }
+                }
+
 
                 //Getting target
                 if(customPathData.length){
@@ -6554,6 +6558,15 @@ var oldTime = new Date().getTime();
 
                 if(dstPorts.length === 0)
                     dstPorts = endports;
+
+                //Preventing same start/endport
+                if(startport && dstPorts.length > 1){
+                    i = dstPorts.length;
+                    while(i--){
+                        if(dstPorts[i] === startport)
+                            dstPorts.splice(i, 1);
+                    }
+                }
 
                 //Getting target
                 if(customPathData.length){
@@ -7632,9 +7645,10 @@ var oldTime = new Date().getTime();
             //Stores a path with ports used 
             this.id = i;
             this.path = p;
-            this.srcPorts = s;
-            this.dstPorts = d;
-            var srcBox = calcBoxId(s),
+            
+            var srcPorts = s,
+                dstPorts = d,
+                srcBox = calcBoxId(s),
                 dstBox = calcBoxId(d);
 
             function calcBoxId(ports){
@@ -7645,14 +7659,48 @@ var oldTime = new Date().getTime();
                 }
             }
 
+            this.getSrcPorts = function(){
+                return srcPorts;
+            };
+
+            this.getDstPorts = function(){
+                return dstPorts;
+            };
+
+            this.setSrcPort = function(index, port){
+                assert(port instanceof AutoRouterPort, "ArPathObject.setSrcPort: port instanceof AutoRouterPort FAILED");
+                srcPorts[index] = port;
+            };
+
+            this.setDstPort = function(index, port){
+                assert(port instanceof AutoRouterPort, "ArPathObject.setDstPort: port instanceof AutoRouterPort FAILED");
+                dstPorts[index] = port;
+            };
+
+            this.setSrcPorts = function(s){
+                srcPorts = s;
+            };
+
+            this.setDstPorts = function(s){
+                dstPorts = s;
+            };
+
+            this.deleteSrcPort = function(index){
+                delete srcPorts[index];
+            };
+
+            this.deleteDstPort = function(index){
+                delete dstPorts[index];
+            };
+
             this.getSrcBoxId = function(){
-                if(this.srcPorts && calcBoxId(this.srcPorts))
+                if(srcPorts && calcBoxId(srcPorts))
                     return srcBox;
                 return null;
             };
 
             this.getDstBoxId = function(){
-                if(this.dstPorts && calcBoxId(this.dstPorts))
+                if(dstPorts && calcBoxId(dstPorts))
                     return dstBox;
                 return null;
             };
@@ -7660,25 +7708,27 @@ var oldTime = new Date().getTime();
             this.updateSrcPorts = function(){
                 var src = [];
 
-                for(var i in this.srcPorts){
-                    if(this.srcPorts.hasOwnProperty(i))
-                        src.push(this.srcPorts[i]);
+                for(var i in srcPorts){
+                    if(srcPorts.hasOwnProperty(i))
+                        assert( srcPorts[i] instanceof AutoRouterPort, "ArPathObject.updateSrcPorts: srcPorts[i] instanceof AutoRouterPort FAILED");
+                        src.push(srcPorts[i]);
                 }
 
                 this.path.setStartPorts(src);
-                srcBox = calcBoxId(this.srcPorts);
+                srcBox = calcBoxId(srcPorts);
             };
 
             this.updateDstPorts = function(){
                 var dst = [];
 
-                for(var i in this.dstPorts){
-                    if(this.dstPorts.hasOwnProperty(i))
-                        dst.push(this.dstPorts[i]);
+                for(var i in dstPorts){
+                    if(dstPorts.hasOwnProperty(i))
+                        assert( dstPorts[i] instanceof AutoRouterPort, "ArPathObject.updateDstPorts: dstPorts[i] instanceof AutoRouterPort FAILED");
+                        dst.push(dstPorts[i]);
                 }
 
                 this.path.setEndPorts(dst);
-                dstBox = calcBoxId(this.dstPorts);
+                dstBox = calcBoxId(dstPorts);
             };
         };
 
@@ -8061,33 +8111,38 @@ var oldTime = new Date().getTime();
     
     AutoRouter.prototype.setBox = function(boxObject, size){
         var box = boxObject.box,
-            ports = boxObject.ports,
             x1 = size.x1 !== undefined ? size.x1 : (size.x2 - size.width),
             x2 = size.x2 !== undefined ? size.x2 : (size.x1 + size.width),
             y1 = size.y1 !== undefined ? size.y1 : (size.y2 - size.height),
             y2 = size.y2 !== undefined ? size.y2 : (size.y1 + size.height),
-            connInfo = size.ConnectionInfo,
+            connInfo = size.ConnectionAreas,
             rect = new ArRect(x1, y1, x2, y2),
             paths = { "in": this.boxId2Path[ box.getID() ].in, "out": this.boxId2Path[ box.getID() ].out },
-            i = paths.in.length;
+            i = paths.in.length,
+            ports;
     
         //Remove and Add Ports
         box.deleteAllPorts();
         boxObject.ports = [];
         this.router.setBoxRect(box, rect);
         this.setConnectionInfo(boxObject, connInfo);
+        ports = boxObject.ports; //get the new ports
     
         //Reconnect paths to ports
         while( i-- ){
             var pathSrc = paths.in[i].path.getStartPorts();
-                paths.in[i].path.setEndPorts( ports );
+                //paths.in[i].path.setEndPorts( ports );
+                paths.in[i].setDstPorts(ports);
+                paths.in[i].updateDstPorts();
                 this.router.disconnect( paths.in[i].path );
         }
     
         i = paths.out.length;
         while( i-- ){
             var pathDst = paths.out[i].path.getEndPorts();
-                paths.out[i].path.setStartPorts( ports );
+                //paths.out[i].path.setStartPorts( ports );
+                paths.out[i].setSrcPorts(ports);
+                paths.out[i].updateSrcPorts();
                 this.router.disconnect( paths.out[i].path );
         }
     };
@@ -8102,21 +8157,20 @@ var oldTime = new Date().getTime();
         ports = this.addPort(box, connArea);//Get new ports
 
         while(i--){//Update the paths with deleted ports
-            var hasSrc = false;//Used to see if the path should be removed
+            var hasSrc = false,
+                srcPorts = pathObjects.out[i].getSrcPorts();//Used to see if the path should be removed
 
-            for(var srcPort in pathObjects.out[i].srcPorts){
-                if(pathObjects.out[i].srcPorts.hasOwnProperty(srcPort)){
+            for(var srcPort in srcPorts){
+                if(srcPorts.hasOwnProperty(srcPort)){
                     if(ports.hasOwnProperty(srcPort)){
-                        pathObjects.out[i].srcPorts[srcPort] = ports[srcPort];
+                        pathObjects.out[i].setSrcPort(srcPort, ports[srcPort]);
                         hasSrc = true;
                     }else{
-                        delete pathObjects.out[i].srcPorts[srcPort];
+                        pathObjects.out[i].deleteSrcPort(srcPort);
                     }
                 }
             }
-            if(!hasSrc){
-                this.remove(pathObjects.out[i].id);
-            }else{
+            if(hasSrc){//Adjust path if applicable
                 this.router.disconnect(pathObjects.out[i].path);
                 pathObjects.out[i].updateSrcPorts();
             }
@@ -8124,23 +8178,21 @@ var oldTime = new Date().getTime();
 
         i = pathObjects.in.length;
         while(i--){
+            var hasDst = false,
+                dstPorts = pathObjects.in[i].getDstPorts();
 
-            var hasDst = false;
-            for(var dstPort in pathObjects.in[i].dstPorts){
-                if(pathObjects.in[i].dstPorts.hasOwnProperty(dstPort)){
+            for(var dstPort in dstPorts){
+                if(dstPorts.hasOwnProperty(dstPort)){
                     if(ports.hasOwnProperty(dstPort)){
-                        pathObjects.in[i].dstPorts[dstPort] = ports[dstPort];
+                        pathObjects.in[i].setDstPort(dstPort, ports[dstPort]);
                         hasDst = true;
                     }else{
-                        delete pathObjects.in[i].dstPorts[dstPort];
+                        pathObjects.in[i].deleteDstPort(dstPort);
                     }
                 }
             }
 
-            //Remove path if applicable
-            if(!hasDst){
-                this.remove(pathObjects.in[i].id);
-            }else{
+            if(hasDst){//Adjust path if applicable
                 this.router.disconnect(pathObjects.in[i].path);
                 pathObjects.in[i].updateDstPorts();
             }

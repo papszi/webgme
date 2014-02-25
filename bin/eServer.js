@@ -41,7 +41,8 @@ requirejs(['logManager',
     'auth/sessionstore',
     'auth/vehicleforgeauth',
     'auth/gmeauth',
-    'util/newrest'],function(
+    'util/newrest',
+    'util/cJson'],function(
     logManager,
     CONFIG,
     Storage,
@@ -52,7 +53,8 @@ requirejs(['logManager',
     SStore,
     VFAUTH,
     GMEAUTH,
-    REST){
+    REST,
+    CANON){
     var parameters = CONFIG;
     var logLevel = parameters.loglevel || logManager.logLevels.WARNING;
     var logFile = parameters.logfile || 'server.log';
@@ -64,6 +66,7 @@ requirejs(['logManager',
     var sitekey = null;
     var sitecertificate = null;
     var _REST = null;
+    var canCheckToken = true;
     if(parameters.httpsecure){
         sitekey = require('fs').readFileSync("proba-key.pem");
         sitecertificate = require('fs').readFileSync("proba-cert.pem");
@@ -97,6 +100,7 @@ requirejs(['logManager',
 
 
 
+
     //for session handling we save the user data to the memory and reuse them in case of need
     var _users = {};
     passport.serializeUser(function(user, done) {
@@ -127,9 +131,16 @@ requirejs(['logManager',
     }
 
     function checkREST(req,res,next){
+        var baseUrl = parameters.httpsecure === true ? 'https://' : 'http://'+req.headers.host+'/rest';
         if(_REST === null){
-            var protocolPrefix = parameters.httpsecure === true ? 'https://' : 'http://';
-            _REST = new REST({host:parameters.mongoip,port:parameters.mongoport,database:parameters.mongodatabase,baseUrl:protocolPrefix+req.headers.host+'/rest'});
+            var restAuthorization;
+            if(parameters.secureREST === true){
+                restAuthorization = gme.tokenAuthorization;
+                baseUrl += '/token';
+            }
+            _REST = new REST({host:parameters.mongoip,port:parameters.mongoport,database:parameters.mongodatabase,baseUrl:baseUrl,authorization:restAuthorization});
+        } else {
+            _REST.setBaseUrl(baseUrl);
         }
         return next();
     }
@@ -156,6 +167,11 @@ requirejs(['logManager',
                 return next();
             }
         }
+    }
+
+    function prepClientLogin(req,res,next){
+        req.__gmeAuthFailUrl__ = '/login/client/fail';
+        next(null);
     }
 
 
@@ -203,6 +219,14 @@ requirejs(['logManager',
         res.cookie('webgme',req.session.udmId);
         res.redirect('/');
     });
+    app.post('/login/client',prepClientLogin,gme.authenticate,function(req,res){
+        res.cookie('webgme',req.session.udmId);
+        res.send(200);
+    });
+    app.get('/login/client/fail',function(req,res){
+        res.clearCookie('webgme');
+        res.send(401);
+    });
     app.get('/login/google',checkGoogleAuthentication,passport.authenticate('google'));
     app.get('/login/google/return',gme.authenticate,function(req,res){
         res.cookie('webgme',req.session.udmId);
@@ -241,17 +265,60 @@ requirejs(['logManager',
         }
     });
     //rest functionality
+    //rest token generation
+    app.get('/gettoken',ensureAuthenticated,function(req,res){
+        if(parameters.secureREST == true){
+            gme.getToken(req.session.id,function(err,token){
+                if(err){
+                    res.send(err);
+                } else {
+                    res.send(token);
+                }
+            });
+        } else {
+            res.send(410); //special error for the interpreters to know there is no need for token
+        }
+    });
+    app.get('/checktoken/*',function(req,res){
+        if(parameters.secureREST == true){
+            if(canCheckToken == true){
+                var token = req.url.split('/');
+                if(token.length === 3){
+                    token = token[2];
+                    setTimeout(function(){canCheckToken = true;},10000);
+                    canCheckToken = false;
+                    gme.checkToken(token,function(isValid){
+                        if(isValid === true){
+                            res.send(200);
+                        } else {
+                            res.send(403);
+                        }
+                    });
+                } else {
+                    res.send(400);
+                }
+            } else {
+                res.send(403);
+            }
+        } else {
+            res.send(410); //special error for the interpreters to know there is no need for token
+        }
+    });
+    //rest requests
     app.get('/rest/*',checkREST,function(req,res){
 
-        var urlArray = req.url.split('/');
-        if(urlArray.length > 2){
-            var command = urlArray[2];
-            var parameters = urlArray.slice(3);
+        var commandpos = CONFIG.secureREST === true ? 3 : 2,
+            minlength = CONFIG.secureREST === true ? 3 : 2,
+            urlArray = req.url.split('/');
+        if(urlArray.length > minlength){
+            var command = urlArray[commandpos],
+                token = CONFIG.secureREST === true ? urlArray[2] : "",
+                parameters = urlArray.slice(commandpos+1);
             _REST.initialize(function(err){
                 if(err){
                     res.send(500);
                 } else {
-                    _REST.doRESTCommand(_REST.request.GET,command,parameters,function(httpStatus,object){
+                    _REST.doRESTCommand(_REST.request.GET,command,token,parameters,function(httpStatus,object){
                         if(command === _REST.command.etf){
                             var filename = 'exportedNode.json';
                             if(parameters[3]){
@@ -263,7 +330,8 @@ requirejs(['logManager',
                             res.header("Content-Type", "application/json");
                             res.header("Content-Disposition", "attachment;filename=\""+filename+"\"");
                             res.status(httpStatus);
-                            res.end(JSON.stringify(object,null,2));
+                            //res.end(JSON.stringify(object,null,2));
+                            res.end(CANON(object));
                         } else {
                             res.json(httpStatus, object || null);
                         }
@@ -272,6 +340,31 @@ requirejs(['logManager',
             });
         } else {
             res.send(400);
+        }
+    });
+    //worker functionalities
+    app.get('/worker/simpleResult/*',function(req,res){
+        var urlArray = req.url.split('/');
+        if(urlArray.length > 3){
+            storage.getWorkerResult(urlArray[3],function(err,result){
+                if(err){
+                    res.send(500);
+                } else {
+                    var filename = 'exportedNodes.json';
+                    if(urlArray[4]){
+                        filename = urlArray[4];
+                    }
+                    if(filename.indexOf('.') === -1){
+                        filename += '.json';
+                    }
+                    res.header("Content-Type", "application/json");
+                    res.header("Content-Disposition", "attachment;filename=\""+filename+"\"");
+                    res.status(200);
+                    res.end(JSON.stringify(result,null,2));
+                }
+            });
+        } else {
+            res.send(404);
         }
     });
     //other get
@@ -301,6 +394,9 @@ requirejs(['logManager',
     __storageOptions.port = parameters.mongoport;
     __storageOptions.database = parameters.mongodatabase;
     __storageOptions.log = logManager.create('combined-server-storage');
+    __storageOptions.getToken = gme.getToken;
+
+    __storageOptions.basedir =  __dirname + "/..";
 
     storage = Storage(__storageOptions);
 

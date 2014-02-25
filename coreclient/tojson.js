@@ -176,7 +176,7 @@ define([
         var setsInfo = {};
         var createOneSetInfo = function(setName,callback){
             var needed,
-                members = core.getMemberPaths(node,setName),
+                members = (core.getMemberPaths(node,setName)).sort(), //TODO we should remove the sort part at some point
                 info = {from:[],to:[],set:true},
                 i,
                 error = null,
@@ -213,7 +213,6 @@ define([
 
             for(i in memberOfInfo){
                 if(memberOfInfo[i].indexOf(setName) !== -1){
-                    //containers.push(core.toActualPath(i)); kecso
                     containers.push(i);
                 }
             }
@@ -345,8 +344,11 @@ define([
             }
             for(var i=0;i<tArray.length;i++){
                 var coll = core.getCollectionPaths(node,tArray[i]);
-                var pointer = {to:[],from:[],set:false};
-                pointer.to.push(getRefObj(core.getPointerPath(node,tArray[i])));
+                var pointer = {to:[],from:[],set:false},
+                    pPath = core.getPointerPath(node,tArray[i]);
+                if(pPath !== undefined){
+                    pointer.to.push(getRefObj(pPath));
+                }
                 for(var j=0;j<coll.length;j++){
                     pointer.from.push(getRefObj(coll[j]));
                 }
@@ -369,11 +371,19 @@ define([
             initialized();
         }
     };
+    var getOwnPartOfNode = function(core,node){
+        var own = {attributes:[],registry:[],pointers:[]};
+        own.attributes = core.getOwnAttributeNames(node);
+        own.registry = core.getOwnRegistryNames(node);
+        own.pointers = core.getOwnPointerNames(node);
+        return own;
+    } ;
     var getJsonNode = function(core,node,urlPrefix,refType,callback){
         var nodes = {},
             tArray,t2Array,
             i,j,
             jNode;
+
         if(refType === _refTypes.guid && typeof core.getGuid !== 'function'){
             callback(new Error('cannot provide GUIDs'),null);
         }
@@ -400,6 +410,9 @@ define([
         for(i=0;i<tArray.length;i++){
             jNode['attributes'][tArray[i]] = core.getAttribute(node,tArray[i]);
         }
+
+        //own part of the node
+        jNode.OWN = getOwnPartOfNode(core,node);
 
 
         //now calling the relational parts

@@ -2,10 +2,14 @@
 
 define(['js/Utils/GMEConcepts',
     'js/DragDrop/DragHelper',
+    'js/NodePropertyNames',
+    'js/RegistryKeys',
     './../ManualAspect/ManualAspectConstants',
     'js/Panels/ControllerBase/DiagramDesignerWidgetMultiTabMemberListControllerBase'], function (
                                                GMEConcepts,
                                                DragHelper,
+                                               nodePropertyNames,
+                                               REGISTRY_KEYS,
                                                ManualAspectConstants,
                                                DiagramDesignerWidgetMultiTabMemberListControllerBase) {
 
@@ -25,7 +29,7 @@ define(['js/Utils/GMEConcepts',
     PointerListEditorController.prototype.getOrderedMemberListInfo = function (memberListContainerObject) {
         var result = [],
             setNames = memberListContainerObject.getSetNames() || [],
-            manualAspectsRegistry = memberListContainerObject.getRegistry(ManualAspectConstants.MANUAL_ASPECTS_REGISTRY_KEY) || [],
+            manualAspectsRegistry = memberListContainerObject.getRegistry(REGISTRY_KEYS.MANUAL_ASPECTS) || [],
             manualAspectSetNames = [],
             len;
 
@@ -74,6 +78,15 @@ define(['js/Utils/GMEConcepts',
     /**********************************************************/
     /*  END OF --- HANDLE OBJECT DRAG & DROP ACCEPTANCE       */
     /**********************************************************/
+
+    /*
+     * Overwrite 'no tab' warning message to the user
+     */
+    PointerListEditorController.prototype.displayNoTabMessage = function () {
+        var msg = 'The currently selected object does not contain any pointer lists.';
+
+        this._widget.setBackgroundText(msg);
+    };
 
     return PointerListEditorController;
 });

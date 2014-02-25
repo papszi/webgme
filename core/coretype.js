@@ -113,8 +113,8 @@ define([ "util/assert", "core/core", "core/tasync" ], function(ASSERT, Core, TAS
                     console.log('!!! ISFALSENODE PLEASE CHECK PROJECT STRUCTURE !!!: ' + core.getPath(node));
                     var root = core.getRoot(node);
                     core.deleteNode(node);
-                    //return TASYNC.call(function(){return null;},core.persist(root));
-                    return null;
+                    return TASYNC.call(function(){return null;},core.persist(root));
+                    //return null;
                 } else {
                     return TASYNC.call(__loadBase2, node, oldcore.loadPointer(node, "base"));
                 }
@@ -162,6 +162,7 @@ define([ "util/assert", "core/core", "core/tasync" ], function(ASSERT, Core, TAS
         core.loadChildren = function(node) {
             ASSERT(isValidNode(node));
             var relids = core.getChildrenRelids(node);
+            relids = relids.sort(); //TODO this should be temporary
             var children = [];
             for(var i = 0; i< relids.length; i++)
                 children[i] = core.loadChild(node,relids[i]);
@@ -227,6 +228,9 @@ define([ "util/assert", "core/core", "core/tasync" ], function(ASSERT, Core, TAS
 
 			return Object.keys(merged);
 		};
+        core.getOwnAttributeNames = function(node){
+            return oldcore.getAttributeNames(node);
+        };
 
 		core.getRegistryNames = function(node) {
 			ASSERT(isValidNode(node));
@@ -245,6 +249,9 @@ define([ "util/assert", "core/core", "core/tasync" ], function(ASSERT, Core, TAS
 
 			return Object.keys(merged);
 		};
+        core.getOwnRegistryNames = function(node){
+            return oldcore.getRegistryNames(node);
+        };
 
 		core.getAttribute = function(node, name) {
 			ASSERT(isValidNode(node));
@@ -256,6 +263,9 @@ define([ "util/assert", "core/core", "core/tasync" ], function(ASSERT, Core, TAS
 
 			return value;
 		};
+        core.getOwnAttribute = function(node,name) {
+            return oldcore.getAttribute(node,name);
+        };
 
 		core.getRegistry = function(node, name) {
 			ASSERT(isValidNode(node));
@@ -267,6 +277,10 @@ define([ "util/assert", "core/core", "core/tasync" ], function(ASSERT, Core, TAS
 
 			return value;
 		};
+        core.getOwnRegistry = function(node,name) {
+            return oldcore.getRegistry(node,name);
+        };
+
 
 		// ----- pointers
 
@@ -287,6 +301,10 @@ define([ "util/assert", "core/core", "core/tasync" ], function(ASSERT, Core, TAS
 
 			return Object.keys(merged);
 		};
+        core.getOwnPointerNames = function(node){
+            ASSERT(isValidNode(node));
+            return oldcore.getPointerNames(node);
+        };
 
         core.getPointerPath = function (node, name) {
             ASSERT(isValidNode(node) && typeof name === "string");
@@ -380,17 +398,9 @@ define([ "util/assert", "core/core", "core/tasync" ], function(ASSERT, Core, TAS
             }
             return target || basePath || (hasNullTarget ? null : undefined);
         };
-
-		core._getPointerPath = function(node, name) {
-			ASSERT(isValidNode(node));
-            var value;
-			do {
-				value = oldcore.getPointerPath(node, name);
-				node = node.base;
-			} while (typeof value === "undefined" && node !== null);
-
-			return value;
-		};
+        core.getOwnPointerPath = function(node,name){
+            oldcore.getPointerPath(node,name);
+        };
 
         core.setBase = function(node,base){
             ASSERT(isValidNode(node) && (base === undefined || base === null || isValidNode(base)));
