@@ -7,14 +7,18 @@ define(['logManager',
     'js/Decorators/DecoratorDB',
     'js/Constants',
     'js/Utils/DisplayFormat',
-    'assets/decoratorSVG'], function (logManager,
+    'js/Dialogs/DecoratorSVGExplorer/DecoratorSVGExplorerDialog',
+    'js/Controls/PropertyGrid/PropertyGridWidgets',
+    './PointerWidget'], function (logManager,
                                         util,
                                         nodePropertyNames,
                                         REGISTRY_KEYS,
                                         DecoratorDB,
                                         CONSTANTS,
                                         displayFormat,
-                                        decoratorSVG) {
+                                        DecoratorSVGExplorerDialog,
+                                        PropertyGridWidgets,
+                                        PointerWidget) {
 
     var PropertyEditorController,
         META_REGISTRY_KEYS = [REGISTRY_KEYS.IS_PORT,
@@ -27,12 +31,17 @@ define(['logManager',
         PROPERTY_GROUP_PREFERENCES = 'Preferences',
         PROPERTY_GROUP_ATTRIBUTES = 'Attributes',
         PROPERTY_GROUP_POINTERS = 'Pointers',
-        DecoratorSVGIconList = [''].concat(decoratorSVG.DecoratorSVGIconList.slice(0)),
         NON_RESETABLE_POINTRS = [CONSTANTS.POINTER_BASE, CONSTANTS.POINTER_SOURCE, CONSTANTS.POINTER_TARGET];
 
     PropertyEditorController = function (client, propertyGrid) {
         this._client = client;
         this._propertyGrid = propertyGrid;
+
+        //it should be sorted aplahbetically
+        this._propertyGrid.setOrdered(true);
+
+        //set custom types here
+        this._propertyGrid.registerWidgetForType('boolean', 'iCheckBox');
 
         this._initEventHandlers();
 
@@ -166,18 +175,11 @@ define(['logManager',
             var result = {},
                 availablePointers = node.getPointerNames(),
                 len = availablePointers.length,
-                ptrTo,
-                ptrToObj;
+                ptrTo;
 
             while (len--) {
                 ptrTo = node.getPointer(availablePointers[len]).to;
                 result[availablePointers[len]] = ptrTo || '';
-                if (ptrTo) {
-                    ptrToObj = _client.getNode(result[availablePointers[len]]);
-                    if (ptrToObj) {
-                        result[availablePointers[len]] = displayFormat.resolve(ptrToObj) + ' (' + result[availablePointers[len]] + ')';
-                    }
-                }
             }
 
             return util.flattenObject(result);
@@ -479,10 +481,16 @@ define(['logManager',
                             //list the
                             if (i === REGISTRY_KEYS.SVG_ICON ||
                                 i === REGISTRY_KEYS.PORT_SVG_ICON) {
-                                //TODO: needs to be fixed
-                                dstList[extKey].valueItems = DecoratorSVGIconList;
+                                dstList[extKey].widget = PropertyGridWidgets.DIALOG_WIDGET;
+                                dstList[extKey].dialog = DecoratorSVGExplorerDialog;
                             }
 
+                            //pointers have a custom widget that allows following the pointer
+                            if (isPointer === true) {
+                                dstList[extKey].widget = PointerWidget;
+                                //add custom widget specific values
+                                dstList[extKey].client = _client;
+                            }
                         }
                     }
                 }
@@ -527,14 +535,6 @@ define(['logManager',
 
             _addItemsToResultList(commonMeta, PROPERTY_GROUP_META, propList, false, true, false);
 
-            //filter out from Pointers
-            for (var it in commonPointers) {
-                if (commonPointers.hasOwnProperty(it)) {
-                    if (commonPointers.hasOwnProperty(it)) {
-                        commonPointers[it].readOnly = true;
-                    }
-                }
-            }
             _addItemsToResultList(commonPointers, PROPERTY_GROUP_POINTERS, propList, false, false, true);
         }
 
