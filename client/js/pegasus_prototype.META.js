@@ -16,27 +16,34 @@ define(['underscore',
     var _metaTypes = {
 		'Attr_Conn': '/-3/-30',
 		'Attribute': '/-3/-14',
+		'Collect': '/-3/-1',
 		'Connection': '/-3/-24',
+		'F2FS_Conn': '/-3/-67',
 		'FCO': '/-3/-22',
 		'FS_Conn': '/-3/-26',
 		'File': '/-3/-8',
 		'FileSet': '/-3/-10',
 		'File_Conn': '/-3/-28',
-		'Fork': '/-3/-12',
-		'Fork_Conn': '/-3/-67',
+		'Fork': '/-3/-2',
+		'Fork_Conn': '/-3/-5',
 		'Job': '/-3/-69',
 		'Job_Conn': '/-3/-27',
 		'Macro': '/-3/-70',
-		'Merge': '/-3/-25',
 		'Merge_Conn': '/-3/-29',
+		'Merge_operation': '/-3/-3',
 		'MetaLanguageContainer': '/-3/-71',
-		'Multiplexer': '/-3/-13'
+		'Multiplexer': '/-3/-13',
+		'Split_Operation': '/-3/-4',
+		'file2fileset': '/-3/-12',
+		'fileset2file': '/-3/-25'
 	};
 
     //META ASPECT TYPE CHECKING
     var _isAttr_Conn = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Attr_Conn); };
 	var _isAttribute = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Attribute); };
+	var _isCollect = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Collect); };
 	var _isConnection = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Connection); };
+	var _isF2FS_Conn = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.F2FS_Conn); };
 	var _isFCO = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.FCO); };
 	var _isFS_Conn = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.FS_Conn); };
 	var _isFile = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.File); };
@@ -47,10 +54,13 @@ define(['underscore',
 	var _isJob = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Job); };
 	var _isJob_Conn = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Job_Conn); };
 	var _isMacro = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Macro); };
-	var _isMerge = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Merge); };
 	var _isMerge_Conn = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Merge_Conn); };
+	var _isMerge_operation = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Merge_operation); };
 	var _isMetaLanguageContainer = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.MetaLanguageContainer); };
 	var _isMultiplexer = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Multiplexer); };
+	var _isSplit_Operation = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Split_Operation); };
+	var _isfile2fileset = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.file2fileset); };
+	var _isfileset2file = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.fileset2file); };
 	
 
     var _queryMetaTypes = function () {
@@ -68,7 +78,7 @@ define(['underscore',
 
             for (m in _metaTypes) {
                 if (_metaTypes.hasOwnProperty(m)) {
-                    delete _metaTypes[m];
+                    //delete _metaTypes[m];
                 }
             }
 
@@ -94,7 +104,9 @@ define(['underscore',
         TYPE_INFO: {
 			isAttr_Conn: _isAttr_Conn,
 			isAttribute: _isAttribute,
+			isCollect: _isCollect,
 			isConnection: _isConnection,
+			isF2FS_Conn: _isF2FS_Conn,
 			isFCO: _isFCO,
 			isFS_Conn: _isFS_Conn,
 			isFile: _isFile,
@@ -105,10 +117,13 @@ define(['underscore',
 			isJob: _isJob,
 			isJob_Conn: _isJob_Conn,
 			isMacro: _isMacro,
-			isMerge: _isMerge,
 			isMerge_Conn: _isMerge_Conn,
+			isMerge_operation: _isMerge_operation,
 			isMetaLanguageContainer: _isMetaLanguageContainer,
-			isMultiplexer: _isMultiplexer
+			isMultiplexer: _isMultiplexer,
+			isSplit_Operation: _isSplit_Operation,
+			isfile2fileset: _isfile2fileset,
+			isfileset2file: _isfileset2file
 		}
     };
 });

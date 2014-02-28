@@ -22,8 +22,8 @@ define(['logManager',
         WebGMEGlobal.Toolbar.addButton({ 'title': "Generic Interpreter",
             "text":"Generic", 
             "clickFn": function (){
-                self._territoryId = self._client.addUI(self, true);
                 self._client.updateTerritory(self._territoryId, { 'root': { 'children': 5 }}); //TODO Set the necessary depth!
+                self._runGenericInterpreter();
             }
         });
 
@@ -32,11 +32,6 @@ define(['logManager',
         });
 
 
-    };
-
-    GenericInterpreter.prototype.onOneEvent = function(events){
-        this._client.removeUI(this._territoryId);
-        this._runGenericInterpreter();
     };
 
     GenericInterpreter.prototype._runGenericInterpreter = function(){
