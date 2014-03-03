@@ -127,7 +127,7 @@ define(['logManager',
             if(paths[p_i].length){
                 //Get next point
                 //Get the connected nodes
-                while(++i < nIds.length;){
+                while(++i < nIds.length){
                     var nodeId = nIds[i],
                         node = this._client.getNode(nodeId),
                         index = paths.length-1,
@@ -173,7 +173,7 @@ define(['logManager',
                     topNode = null;
                 while(i--){
                     var nodeId = nIds[i],
-                        node = this._client.getNode(nodeId),
+                        node = this._client.getNode(nodeId);
 
                         if(minY > y1)//Compare y positions
                             topNode = nodeId;
@@ -208,7 +208,7 @@ define(['logManager',
     PegasusInterpreter.prototype._processPath = function(path, dst){
         //Find the areas to copy multiple times 
         //using Dot and Collect operators
-        var i = 1,
+        var i = 1;
 //Get the duplication number from the first node
 //TODO
 //if(this.pegasusTypes.isFileSet(path[0]) && this.pegasusTypes.isDot(path[1]))
@@ -221,7 +221,7 @@ var num = 1;
 while(++i < path.length){
         var node = this._client.getNode(path[i]);
 
-if(//leader is a dot operator
+//if(//leader is a dot operator
 }
 
     };
@@ -231,6 +231,7 @@ if(//leader is a dot operator
         //dis = {dx: dy:}
     };
 
+/*
         //Next, we will 
         i = nodeIds.length;
         while(i--){
@@ -274,12 +275,13 @@ if(//leader is a dot operator
 
                 //if(child.getChildrenIds().length !== 0)
                     //this._cloneChildren(childrenIds[i], 
-            }
+            //}
 
         }
 
         return boundary;
     };
+    */
 
     PegasusInterpreter.prototype._addToParams = function(nodeId, dstId){
         var k = this.params.length;
