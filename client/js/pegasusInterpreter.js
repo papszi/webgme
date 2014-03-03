@@ -37,15 +37,18 @@ define(['logManager',
             //Keep track of the "push zones" or the areas that objects need to be moved from (to make space)
         //Finally, add all the remaining objects with respect to the "push zones"
     PegasusInterpreter.prototype._runPegasusInterpreter = function(){
-        this._logger.info("Running Generative Interpreter");
+        this._logger.info("Running Pegasus Interpreter");
         this.original2copy = {}; //Mapping original node ids to copy
         this.boxes2process = [];
         this.params = [{}];
         this.extraCopying = [];
 
+        //Copying project
         this._createOutputProject();
         this._client.startTransaction();
-        this._cloneChildren(this.currentObject, this.params[0].parentId);
+
+        var childrenIds = this._client.getNode(this.currentObject).getChildrenIds();
+        this._copyNodes(childrenIds, this.params[0].parentId);
 
         var i = this.params.length;
         while(i--){
@@ -54,6 +57,7 @@ define(['logManager',
 
         this._client.completeTransaction();
         this._client.startTransaction();
+
 
         //Make any extra copies that were requested
         this.copyParams = {};
@@ -99,13 +103,136 @@ define(['logManager',
     };
 
 
-    PegasusInterpreter.prototype._cloneChildren = function(nodeId, dstId, num){
-        var node = this._client.getNode(nodeId),
-            childrenIds = node.getChildrenIds(),
-            i = childrenIds.length,
-            currId = node.getId(),
-            n = num || 1;
+    PegasusInterpreter.prototype._copyNodes = function(nIds, dstId){
+        //Find start node
+        var nodeIds = [],
+            i,
+            boundary = {},
+            paths = [],
+            p_i = 0,
+            next = [];
 
+        //Order the nodes by the following rule:
+        //If it is linked to the last node, add it
+        //ow get the highest node
+        while(nIds.length){
+            //Add to paths
+            if(paths[p_i] === undefined){ //Start a new path
+                paths.push([]);
+            }else{
+                paths[p_i].push(next[0]);
+                nIds.splice(nIds.indexOf(next[0]));
+            }
+
+            if(paths[p_i].length){
+                //Get next point
+                //Get the connected nodes
+                while(++i < nIds.length;){
+                    var nodeId = nIds[i],
+                        node = this._client.getNode(nodeId),
+                        index = paths.length-1,
+                        lastNode = paths[index][paths[index].length-1],
+                        nodePtrNames = node.getPointerNames(),
+                        lastPtrNames = lastNode.getPointerNames(),
+                        lastId = nodeIds.length ? null : nodeIds[nodeIds.length-1],
+                        added = false,
+                        searchId,
+                        sNode;//search node
+
+                    if(nodePtrNames.indexOf(CONSTANTS.POINTER_SOURCE) !== -1){
+                        sNode = node;
+                        searchId = lastId;
+                    }else if(lastPtrNames.indexOf(CONSTANTS.POINTER_SOURCE) !== -1){ //Assuming not both connections
+                        sNode = lastNode;
+                        searchId = nodeId;
+                    }
+
+                    if(sNode){//one is a connection
+                        var src = sNode.getPointer(CONSTANTS.POINTER_SOURCE).to,
+                            dst = sNode.getPointer(CONSTANTS.POINTER_TARGET).to,
+                            id = sNode === node ? lastId : id;
+
+                        if(src == id || dst === id){//Then they are connected
+                            //add the nodeId to the nodeIds list
+                            next[0] = nodeId;
+                            added = true;
+                            break;
+                        }
+                    }
+
+                    if(!added)//End of the given path
+                        p_i++;
+
+                }
+            }else{
+                //Get start point
+                //Get the top most node
+                //NOTE: For now I will only support straight paths FIXME
+                i = nIds.length;
+                var minY = undefined,
+                    topNode = null;
+                while(i--){
+                    var nodeId = nIds[i],
+                        node = this._client.getNode(nodeId),
+
+                        if(minY > y1)//Compare y positions
+                            topNode = nodeId;
+                }
+
+                next[0] = topNode;
+            }
+
+            /*
+               var x1 = ,//TODO
+               x2 = ,
+               y1 = ,
+               y2 = ;
+            //Get boundary rectangle
+            boundary.x1 = Math.min(boundary.x1, x1);
+            boundary.x2 = Math.max(boundary.x2, x2);
+            boundary.y1 = Math.min(boundary.y1, y1);
+            boundary.y2 = Math.max(boundary.y2, y2);
+             */
+
+            //If there is a node in nodeIds, check to see 
+            //if it is connected to the current
+        }
+
+        //Next, for each path, I will need to pass through and find any sub paths that will need to be duplicated
+        i = paths.length;
+        while(i--){
+            this._processPath(path[i], dst);
+        }
+    };
+
+    PegasusInterpreter.prototype._processPath = function(path, dst){
+        //Find the areas to copy multiple times 
+        //using Dot and Collect operators
+        var i = 1,
+//Get the duplication number from the first node
+//TODO
+//if(this.pegasusTypes.isFileSet(path[0]) && this.pegasusTypes.isDot(path[1]))
+//var num = this.getFileCount(path[0]);
+var num = 1;
+
+//get boundary box
+
+//
+while(++i < path.length){
+        var node = this._client.getNode(path[i]);
+
+if(//leader is a dot operator
+}
+
+    };
+    
+    PegasusInterpreter.prototype._copyPath = function(path, dst, dis){
+        //For a given path, this method will copy path to dst with the given displacement
+        //dis = {dx: dy:}
+    };
+
+        //Next, we will 
+        i = nodeIds.length;
         while(i--){
              var child = this._client.getNode(childrenIds[i]),
                 childType = child.getBaseId(),
@@ -150,6 +277,8 @@ define(['logManager',
             }
 
         }
+
+        return boundary;
     };
 
     PegasusInterpreter.prototype._addToParams = function(nodeId, dstId){
