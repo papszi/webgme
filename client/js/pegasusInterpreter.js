@@ -58,10 +58,6 @@ define(['logManager',
             this.original2copy[this.params[i].parentId] = this._client.copyMoreNodes(this.params[i]);
         }
 
-        //Correct any incorrect connections - This assumes that all connections should be within the 
-        //project (dstId)
-        this._correctConnections(this.params[0].parentId);
-
         this._client.completeTransaction();
         this._client.startTransaction();
 
@@ -94,6 +90,10 @@ define(['logManager',
                 }
             }
         }
+        //Correct any incorrect connections - This assumes that all connections should be within the 
+        //project (dstId)
+        this._correctConnections(this.params[0].parentId);
+
         this._client.completeTransaction();
 
     };
@@ -239,17 +239,55 @@ define(['logManager',
         }
     };
 
-    PegasusInterpreter.prototype._processForkOperation = function(fsId, dst, nearObjects){
+    PegasusInterpreter.prototype._processForkOperation = function(fsId, dst, near){
+        var fileObject = this._createFileFromFileSet(fsId, dst),
+            file = fileObject.id,
+            names = fileObject.names,
+            pos = [ fileObject.position, this._client.getNode(near.job).getRegistry('position')],
+            //count = names.length + 1,
+            conns = [],
+            dx = this.dx,
+            dy = this.dy,
+            i = -1;//total files and jobs to create in parallel
         //TODO
         //
         //I need to:
         //
         //Create a connection from prev to first created file
-        var conn = this._createConnection(dst, prev, fsId);
+        conns.push(this._createConnection(dst, near.prev, file));
 
+        //Create a connection from file to job
+        conns.push(this._createConnection(dst, file, near.job));
+
+        //Create a connection from file to job
+        conns.push(this._createConnection(dst, near.job, near.next));
+
+        //Copy the job
+        this._addToParams(near.job, dst);
+
+        while(++i < names.length){//FIXME I may need to add these to "extra copying"
+            var attr = {},
+                position = [ { 'x': pos[0].x+(i+1)*dx, 'y': pos[0].y+(i+1)*dy }, { 'x': pos[1] .x+(i+1)*dx, 'y': pos[1].y+(i+1)*dy }],
+                j = conns.length;
+
+            attr[nodePropertyNames.Attributes.name] = names[i];
+
+            this.extraCopying.push({ 'num': 1, 'id': file, 'dstId': dst, 'attr': { 'attributes': attr, 'registry': {'position': position[0]} }});
+            this.extraCopying.push({ 'num': 1, 'id': near.job, 'dstId': dst, 'attr': { 'attributes': {}, 'registry': {'position': position[1]} }});
+            /*
+            this._addToParams(file, dst, { 'attributes': attr, 'registry': {'position': position[0]} }); //FIXME shouldn't be hardcoded!
+
+            //Copy over a process (change the location)
+            this._addToParams(near.job, dst, { 'attributes': {}, 'registry': {'position': position[1]} }); //FIXME shouldn't be hardcoded!
+
+            */
+            while(j--){
+                //Copy the conn(s) for each file copied
+                this._addToParams(conns[j], dst);
+            }
+        }
         //Create a job
         var job;//TODO
-        //Create a connection from file to job
         //
         //Copy connection (made previously)
         //Copy jobs
