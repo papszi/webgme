@@ -11,9 +11,12 @@ define(['logManager',
     var PegasusInterpreter = function(_client) {
         this._logger = logManager.create('PegasusInterpreter');
         this._client = _client;
-        this.pegasusTypes = domainMeta.TYPE_INFO;
+        this.pegasusTypes = domainMeta.META_TYPES;
+        this.pegasusTypeCheck = domainMeta.TYPE_INFO;
         this.currentObject;
         this.namespace; //Set from the currentObject's name
+        this.dx = 110;
+        this.dy = 0;
         var self = this;
 
         WebGMEGlobal.Toolbar.addButton({ 'title': "Pegasus Interpreter",
@@ -48,12 +51,16 @@ define(['logManager',
         this._client.startTransaction();
 
         var childrenIds = this._client.getNode(this.currentObject).getChildrenIds();
-        this._copyNodes(childrenIds, this.params[0].parentId);
+        this._createCopyLists(childrenIds, this.params[0].parentId);
 
         var i = this.params.length;
         while(i--){
             this.original2copy[this.params[i].parentId] = this._client.copyMoreNodes(this.params[i]);
         }
+
+        //Correct any incorrect connections - This assumes that all connections should be within the 
+        //project (dstId)
+        this._correctConnections(this.params[0].parentId);
 
         this._client.completeTransaction();
         this._client.startTransaction();
@@ -74,7 +81,7 @@ define(['logManager',
                 if(i === this.copyParams[job.dstId].length)
                     this.copyParams[job.dstId].push({ 'parentId': job.dstId });
 
-                this.copyParams[job.dstId][i][job.id] = {};
+                this.copyParams[job.dstId][i][job.id] = job.attr;
                 i++;
             }
         }
@@ -103,200 +110,226 @@ define(['logManager',
     };
 
 
-    PegasusInterpreter.prototype._copyNodes = function(nIds, dstId){
+    PegasusInterpreter.prototype._createPaths = function(nIds){
         //Find start node
         var nodeIds = [],
             i,
             boundary = {},
-            paths = [],
+            paths = [[]],
             p_i = 0,
             next = [];
 
         //Order the nodes by the following rule:
         //If it is linked to the last node, add it
-        //ow get the highest node
+        //O.W. get the highest node
         while(nIds.length){
-            //Add to paths
-            if(paths[p_i] === undefined){ //Start a new path
-                paths.push([]);
-            }else{
-                paths[p_i].push(next[0]);
-                nIds.splice(nIds.indexOf(next[0]));
-            }
-
-            if(paths[p_i].length){
+           if(paths[p_i].length){
                 //Get next point
                 //Get the connected nodes
+                var index = paths.length-1,
+                    lastId = paths[index][paths[index].length-1],
+                    lastNode = this._client.getNode(lastId),
+                    lastPtrNames = lastNode.getPointerNames(),
+                    added = false;
+
+                i = -1;
                 while(++i < nIds.length){
                     var nodeId = nIds[i],
                         node = this._client.getNode(nodeId),
-                        index = paths.length-1,
-                        lastNode = paths[index][paths[index].length-1],
                         nodePtrNames = node.getPointerNames(),
-                        lastPtrNames = lastNode.getPointerNames(),
-                        lastId = nodeIds.length ? null : nodeIds[nodeIds.length-1],
-                        added = false,
-                        searchId,
-                        sNode;//search node
+                        searchId = null,
+                        connNode = null;//search node
 
-                    if(nodePtrNames.indexOf(CONSTANTS.POINTER_SOURCE) !== -1){
-                        sNode = node;
+                    if(this.pegasusTypeCheck.isConnection(nodeId)){
+                        connNode = node;
                         searchId = lastId;
-                    }else if(lastPtrNames.indexOf(CONSTANTS.POINTER_SOURCE) !== -1){ //Assuming not both connections
-                        sNode = lastNode;
+                    }else if(this.pegasusTypeCheck.isConnection(lastId)){ //Assuming not both connections
+                        connNode = lastNode;
                         searchId = nodeId;
                     }
 
-                    if(sNode){//one is a connection
-                        var src = sNode.getPointer(CONSTANTS.POINTER_SOURCE).to,
-                            dst = sNode.getPointer(CONSTANTS.POINTER_TARGET).to,
-                            id = sNode === node ? lastId : id;
+                    if(connNode){//one is a connection
+                        var src = connNode.getPointer(CONSTANTS.POINTER_SOURCE).to,
+                            dst = connNode.getPointer(CONSTANTS.POINTER_TARGET).to,
+                            id = connNode === node ? lastId : nodeId;
 
-                        if(src == id || dst === id){//Then they are connected
+                        if(src === searchId || dst === searchId
+                                || src.indexOf(searchId+'/') !== -1 || dst.indexOf(searchId+'/') !== -1){//Then they are connected (to obj or children)
                             //add the nodeId to the nodeIds list
                             next[0] = nodeId;
                             added = true;
                             break;
                         }
                     }
-
+                }
                     if(!added)//End of the given path
                         p_i++;
 
-                }
             }else{
                 //Get start point
                 //Get the top most node
                 //NOTE: For now I will only support straight paths FIXME
                 i = nIds.length;
-                var minY = undefined,
+                var minY = null,
                     topNode = null;
                 while(i--){
                     var nodeId = nIds[i],
-                        node = this._client.getNode(nodeId);
+                        node = this._client.getNode(nodeId),
+                        y = node.getRegistry("position").y;
 
-                        if(minY > y1)//Compare y positions
-                            topNode = nodeId;
+                    if(minY > y || minY === null){//Compare y positions
+                        topNode = nodeId;
+                        minY = y;
+                    }
                 }
 
                 next[0] = topNode;
             }
 
-            /*
-               var x1 = ,//TODO
-               x2 = ,
-               y1 = ,
-               y2 = ;
-            //Get boundary rectangle
-            boundary.x1 = Math.min(boundary.x1, x1);
-            boundary.x2 = Math.max(boundary.x2, x2);
-            boundary.y1 = Math.min(boundary.y1, y1);
-            boundary.y2 = Math.max(boundary.y2, y2);
-             */
-
             //If there is a node in nodeIds, check to see 
             //if it is connected to the current
-        }
 
-        //Next, for each path, I will need to pass through and find any sub paths that will need to be duplicated
-        i = paths.length;
-        while(i--){
-            this._processPath(path[i], dst);
-        }
-    };
-
-    PegasusInterpreter.prototype._processPath = function(path, dst){
-        //Find the areas to copy multiple times 
-        //using Dot and Collect operators
-        var i = 1;
-//Get the duplication number from the first node
-//TODO
-//if(this.pegasusTypes.isFileSet(path[0]) && this.pegasusTypes.isDot(path[1]))
-//var num = this.getFileCount(path[0]);
-var num = 1;
-
-//get boundary box
-
-//
-while(++i < path.length){
-        var node = this._client.getNode(path[i]);
-
-//if(//leader is a dot operator
-}
-
-    };
-    
-    PegasusInterpreter.prototype._copyPath = function(path, dst, dis){
-        //For a given path, this method will copy path to dst with the given displacement
-        //dis = {dx: dy:}
-    };
-
-/*
-        //Next, we will 
-        i = nodeIds.length;
-        while(i--){
-             var child = this._client.getNode(childrenIds[i]),
-                childType = child.getBaseId(),
-                ptrNames = child.getPointerNames(),
-                src = null,
-                dst = null,
-                srcParent = null,
-                dstParent = null;
-
-            n = num || 1;
-
-            if( ptrNames.indexOf(CONSTANTS.POINTER_SOURCE) !== -1 
-                && ptrNames.indexOf(CONSTANTS.POINTER_TARGET) !== -1){
-                src = child.getPointer(CONSTANTS.POINTER_SOURCE).to;
-                dst = child.getPointer(CONSTANTS.POINTER_TARGET).to;
-                srcParent = this._client.getNode(src).getParentId();
-                dstParent = this._client.getNode(dst).getParentId();
-
-            }
-
-            if((domainMeta.TYPE_INFO.isLoop(srcParent) && srcParent !== nodeId) || (domainMeta.TYPE_INFO.isLoop(dstParent) && dstParent !== nodeId)){
-                var dstParentId = domainMeta.TYPE_INFO.isLoop(srcParent) ? srcParent : dstParent,
-                    j = parseInt(this._client.getNode(dstParentId).getAttribute('iterations'));
-
-                this._addToParams(childrenIds[i], dstId);
-                this.extraCopying.push({ 'num': j - 1, 'id': childrenIds[i], 'dstId': dstId });
-
-            }else if(domainMeta.TYPE_INFO.isLoop(childrenIds[i])){
-                var j = parseInt(child.getAttribute('iterations'));
-
-                this._cloneChildren(childrenIds[i], dstId, j);
+            //Add to paths
+            if(paths[p_i] === undefined){ //Start a new path
+                paths.push([]);
             }else{
+                paths[p_i].push(next[0]);
+                nIds.splice(nIds.indexOf(next[0]),1);
+            }
+ 
+        }
+        return paths;
+    };
 
-                if(this._addToParams(childrenIds[i], dstId));
-                    n--;//Decrement if one instance of the object is added to this.params
+    PegasusInterpreter.prototype._createCopyLists = function(nIds, dstId){
+        var paths = this._createPaths(nIds),//Create lists out of lists
+            i = paths.length;
 
-                if(n > 0)
-                    this.extraCopying.push({ 'num': n, 'id': childrenIds[i], 'dstId': dstId });
+        //Next, for each path, I will resolve the dot operators then the filesets
+        while(i--){
+            this._copyPath(paths[i], dstId);
+        }
+    };
 
-                //if(child.getChildrenIds().length !== 0)
-                    //this._cloneChildren(childrenIds[i], 
-            //}
+    PegasusInterpreter.prototype._copyPath = function(path, dst, dis){
+        var i = -1;
+        while(++i < path.length){
+            if(this.pegasusTypeCheck.isConnection(path[i]) && !this.pegasusTypeCheck.isFileSet(path[i+1])){
+                this._addToParams(path[i], dst);
+            }else if(this.pegasusTypeCheck.isFileSet(path[i])){
+                if(this.pegasusTypeCheck.isFork(path[i+2])){//Next is a Fork/Dot operator!
+                    //Get the next process
+                    var j = i+4,
+                        next = path[j];
+                    while(!this.pegasusTypeCheck.isJob(next)){
+                        next = path[j+=2];
+                    }
 
+                    //I will need to create "parallel tracks"
+                    this._processForkOperation(path[i], dst, { 'prev': i > 1 ? path[i-2] : null, 'job': path[j], 'next': j < path.length - 2 ? path[j+2] : null });
+                    i = j+2;
+                }else{//All created files will share prev/next things in the list!
+                    this._processFileSet(path[i], dst, i > 1 ? path[i-2] : null, i < path.length - 2 ? path[i+2] : null);//this._getFileNames(path[i]);
+                    i++;//Skip the next connection
+                }
+            }else if(!this.pegasusTypeCheck.isConnection(path[i])){
+                this._addToParams(path[i], dst);
+            }
+        }
+    };
+
+    PegasusInterpreter.prototype._processForkOperation = function(fsId, dst, prev, next){
+        //TODO
+        console.log("FOUND A FORK!");
+    };
+
+    PegasusInterpreter.prototype._processFileSet = function(fsId, dst, prev, next){
+        var fileObject = this._createFileFromFileSet(fsId, dst),
+            file = fileObject.id,
+            names = fileObject.names,
+            pos = fileObject.position,
+            dx = 110,//TODO figure out an intelligent way to set these!
+            dy = 0,
+            i = -1,
+            conns = [];
+
+        //Create the first connection (which we will copy)
+        if(prev)
+            conns.push(this._createConnection(dst, prev, file));
+
+        if(next)
+            conns.push(this._createConnection(dst, file, next));
+
+        //Next, we will add these files to be copied
+        while(++i < names.length){//FIXME add formatting to make it look nice
+            var attr = {},
+                position = { 'x': pos.x+(i+1)*dx, 'y': pos.y+(i+1)*dy },
+                j = conns.length;
+
+            attr[nodePropertyNames.Attributes.name] = names[i];
+            this._addToParams(file, dst, { 'attributes': attr, 'registry': {'position': position} }); //FIXME shouldn't be hardcoded!
+
+            while(j--){
+                //Copy the conn(s) for each file copied
+                this._addToParams(conns[j], dst);
+            }
+        }
+    };
+
+    PegasusInterpreter.prototype._createFileFromFileSet = function(fsId, dst){
+        var pos = this._client.getNode(fsId).getRegistry('position'),//FIXME shouldn't be hardcoded
+            names = this._getFileNames(fsId),
+            fileId = this._client.createChild({ 'parentId': dst, 'baseId': this.pegasusTypes.File });
+
+        this._client.setAttributes(fileId, nodePropertyNames.Attributes.name, names.splice(0,1)[0]);
+        this._client.setRegistry(fileId, 'position', pos);
+
+        return { 'id': fileId, 'names': names, 'position': pos };
+    };
+
+    PegasusInterpreter.prototype._createConnection = function(dstId, src, dst){
+        var baseId = this.pegasusTypes.Job_Conn,
+            connId;
+
+        connId = this._client.createChild({ 'parentId': dstId, 'baseId': baseId });
+        this._client.makePointer(connId, CONSTANTS.POINTER_SOURCE, src);
+        this._client.makePointer(connId, CONSTANTS.POINTER_TARGET, dst);
+        return connId;
+    };
+
+    PegasusInterpreter.prototype._getFileNames = function(fsId){//FileSet node
+        var fs = this._client.getNode(fsId),
+            filenames = fs.getAttribute('filenames'),
+            names = [],
+            k = filenames.indexOf('['),
+            basename = filenames.slice(0,k) + "%COUNT" + filenames.slice(filenames.lastIndexOf(']')+1),
+            i = filenames.slice(k+1),
+            j;//Only supports one set of numbered input for now
+
+        j = parseInt(i.slice(i.indexOf('-')+1, i.indexOf(']')));
+        i = parseInt(i.slice(0,i.indexOf('-')));
+
+        k = Math.max(i,j);
+        i = Math.min(i,j)-1;
+
+        while(i++ < j){
+            names.push(basename.replace("%COUNT", i));
         }
 
-        return boundary;
+        return names;
     };
-    */
 
-    PegasusInterpreter.prototype._addToParams = function(nodeId, dstId){
-        var k = this.params.length;
+    PegasusInterpreter.prototype._addToParams = function(nodeId, dstId, attr){
+        var k = -1;
 
-        while(--k >= 0 && this.params[k].parentId !== dstId);
+        while(++k < this.params.length && (this.params[k].parentId !== dstId || this.params[k][nodeId]));
 
-        if(k < 0){
+        if(k === this.params.length || this.params[k][nodeId]){
             this.params.push({ 'parentId': dstId });
             k = this.params.length - 1;
         }
 
-        if(this.params[k][nodeId])
-            return false; //Not added - already exists in params
-
-        this.params[k][nodeId] = {};
+        this.params[k][nodeId] = attr || {};
         return true;
     };
 
@@ -346,5 +379,26 @@ while(++i < path.length){
 
     };
 
-    return PegasusInterpreter;
+    PegasusInterpreter.prototype._correctConnections = function(parentId){
+        var nodeIds = this._client.getNode(parentId).getChildrenIds();
+
+        while(nodeIds.length){
+            var nodeId = nodeIds.splice(0, 1)[0],
+                node = this._client.getNode(nodeId);
+
+            if(node.getPointerNames().indexOf(CONSTANTS.POINTER_SOURCE) === -1)//Is it a type of connection?
+                continue;
+
+            var src = node.getPointer(CONSTANTS.POINTER_SOURCE).to,
+                dst = node.getPointer(CONSTANTS.POINTER_TARGET).to;
+
+            if(src.indexOf(parentId) !== 0)//Then points to something in another project
+                this._client.makePointer(nodeId, CONSTANTS.POINTER_SOURCE, this.original2copy[parentId][src]);
+
+            if(dst.indexOf(parentId) !== 0)
+                this._client.makePointer(nodeId, CONSTANTS.POINTER_TARGET, this.original2copy[parentId][dst]);
+        }
+    };
+
+return PegasusInterpreter;
 });
