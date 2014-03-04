@@ -212,6 +212,7 @@ define(['logManager',
     };
 
     PegasusInterpreter.prototype._copyPath = function(path, dst, dis){
+        //Find the maximal width TODO
         var i = -1;
         while(++i < path.length){
             if(this.pegasusTypeCheck.isConnection(path[i]) && !this.pegasusTypeCheck.isFileSet(path[i+1])){
@@ -226,7 +227,7 @@ define(['logManager',
                     }
 
                     //I will need to create "parallel tracks"
-                    this._processForkOperation(path[i], dst, { 'prev': i > 1 ? path[i-2] : null, 'job': path[j], 'next': j < path.length - 2 ? path[j+2] : null });
+                    this._processForkOperation(path[i], dst, { 'prev': i > 1 ? path[i-2] : null, 'job': path[j], 'jobConn': path[j+1], 'next': j < path.length - 2 ? path[j+2] : null });
                     i = j+2;
                 }else{//All created files will share prev/next things in the list!
                     this._processFileSet(path[i], dst, i > 1 ? path[i-2] : null, i < path.length - 2 ? path[i+2] : null);//this._getFileNames(path[i]);
@@ -238,8 +239,21 @@ define(['logManager',
         }
     };
 
-    PegasusInterpreter.prototype._processForkOperation = function(fsId, dst, prev, next){
+    PegasusInterpreter.prototype._processForkOperation = function(fsId, dst, nearObjects){
         //TODO
+        //
+        //I need to:
+        //
+        //Create a connection from prev to first created file
+        var conn = this._createConnection(dst, prev, fsId);
+
+        //Create a job
+        var job;//TODO
+        //Create a connection from file to job
+        //
+        //Copy connection (made previously)
+        //Copy jobs
+        //Copy path from 'jobs' (jobConn)
         console.log("FOUND A FORK!");
     };
 
