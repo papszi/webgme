@@ -7,7 +7,6 @@ define([
     'logManager',
     'util/url',
     'coreclient/meta',
-    'coreclient/metaforgui',
     'coreclient/tojson',
     'coreclient/dump',
     'coreclient/dumpmore',
@@ -23,7 +22,6 @@ define([
         LogManager,
         URL,
         BaseMeta,
-        GuiMeta,
         ToJson,
         Dump,
         DumpMore,
@@ -72,7 +70,7 @@ define([
                 _offline = false,
                 _networkWatcher = null,
                 _TOKEN = null;
-                META = new GuiMeta(new BaseMeta());
+                META = new BaseMeta();
 
             function print_nodes(pretext){
                 if(pretext){
@@ -602,6 +600,18 @@ define([
                 return modifiedNodes;
             }
             //this is just a first brute implementation it needs serious optimization!!!
+            function fitsInPatternTypes(path,pattern){
+                if(pattern.items && pattern.items.length > 0){
+                    for(var i=0;i<pattern.items.length;i++){
+                        if(META.isTypeOf(path,pattern.items[i])){
+                            return true;
+                        }
+                    }
+                    return false;
+                } else {
+                    return true;
+                }
+            }
             function patternToPaths(patternId,pattern,pathsSoFar){
                 if(_nodes[patternId]){
                     pathsSoFar[patternId] = true;
@@ -610,7 +620,9 @@ define([
                         var subPattern = COPY(pattern);
                         subPattern.children--;
                         for(var i=0;i<children.length;i++){
-                            patternToPaths(children[i],subPattern,pathsSoFar);
+                            if(fitsInPatternTypes(children[i],pattern)){
+                                patternToPaths(children[i],subPattern,pathsSoFar);
+                            }
                         }
                     }
                 } else{
@@ -2071,12 +2083,12 @@ define([
             /*function getExportItemsUrlAsync(paths,filename,callback){
                 getExternalInterpreterConfigUrlAsync(paths[0],"config_",callback);
             }*/
-            function getExternalInterpreterConfigUrlAsync(selectedItemsPath,filename,callback){
+            function getExternalInterpreterConfigUrlAsync(selectedItemsPaths,filename,callback){
                 var config = {};
                 config.host = window.location.protocol+"//"+window.location.host;
                 config.project = _projectName;
                 config.token = _TOKEN.getToken();
-                config.selected = plainUrl('node',selectedItemsPath || "");
+                config.selected = plainUrl('node',selectedItemsPaths[0] || "");
                 config.commit = URL.addSpecialChars(_recentCommits[0] || "");
                 config.root = plainUrl('node',"");
                 config.branch = _branch
@@ -2264,36 +2276,43 @@ define([
                 delBase: delBase,
 
                 //we simply propagate the functions of META
-                getMeta : META.getMeta,
-                setMeta : META.setMeta,
-                getChildrenMeta: META.getChildrenMeta,
-                setChildrenMeta: META.setChildrenMeta,
-                getChildrenMetaAttribute: META.getChildrenMetaAttribute,
-                setChildrenMetaAttribute: META.setChildrenMetaAttribute,
-                getValidChildrenItems: META.getValidChildrenItems,
-                updateValidChildrenItem: META.updateValidChildrenItem,
-                removeValidChildrenItem: META.removeValidChildrenItem,
-                getAttributeSchema: META.getAttributeSchema,
-                setAttributeSchema: META.setAttributeSchema,
-                removeAttributeSchema: META.removeAttributeSchema,
-                getPointerMeta: META.getPointerMeta,
-                setPointerMeta: META.setPointerMeta,
-                getValidTargetItems: META.getValidTargetItems,
-                updateValidTargetItem: META.updateValidTargetItem,
-                removeValidTargetItem: META.removeValidTargetItem,
-                deleteMetaPointer: META.deleteMetaPointer,
-                getOwnValidChildrenTypes: META.getOwnValidChildrenTypes,
-                getOwnValidTargetTypes: META.getOwnValidTargetTypes,
-                isValidChild: META.isValidChild,
-                isValidTarget: META.isValidTarget,
-                isValidAttribute: META.isValidAttribute,
-                getValidChildrenTypes: META.getValidChildrenTypes,
-                getValidTargetTypes: META.getValidTargetTypes,
-                hasOwnMetaRules : META.hasOwnMetaRules,
-                filterValidTarget : META.filterValidTarget,
-                isTypeOf: META.isTypeOf,               
-                getValidAttributeNames   : META.getValidAttributeNames,
-                getOwnValidAttributeNames: META.getOwnValidAttributeNames,
+                getMeta                   : META.getMeta,
+                setMeta                   : META.setMeta,
+                getChildrenMeta           : META.getChildrenMeta,
+                setChildrenMeta           : META.setChildrenMeta,
+                getChildrenMetaAttribute  : META.getChildrenMetaAttribute,
+                setChildrenMetaAttribute  : META.setChildrenMetaAttribute,
+                getValidChildrenItems     : META.getValidChildrenItems,
+                updateValidChildrenItem   : META.updateValidChildrenItem,
+                removeValidChildrenItem   : META.removeValidChildrenItem,
+                getAttributeSchema        : META.getAttributeSchema,
+                setAttributeSchema        : META.setAttributeSchema,
+                removeAttributeSchema     : META.removeAttributeSchema,
+                getPointerMeta            : META.getPointerMeta,
+                setPointerMeta            : META.setPointerMeta,
+                getValidTargetItems       : META.getValidTargetItems,
+                updateValidTargetItem     : META.updateValidTargetItem,
+                removeValidTargetItem     : META.removeValidTargetItem,
+                deleteMetaPointer         : META.deleteMetaPointer,
+                getOwnValidChildrenTypes  : META.getOwnValidChildrenTypes,
+                getOwnValidTargetTypes    : META.getOwnValidTargetTypes,
+                isValidChild              : META.isValidChild,
+                isValidTarget             : META.isValidTarget,
+                isValidAttribute          : META.isValidAttribute,
+                getValidChildrenTypes     : META.getValidChildrenTypes,
+                getValidTargetTypes       : META.getValidTargetTypes,
+                hasOwnMetaRules           : META.hasOwnMetaRules,
+                filterValidTarget         : META.filterValidTarget,
+                isTypeOf                  : META.isTypeOf,
+                getValidAttributeNames    : META.getValidAttributeNames,
+                getOwnValidAttributeNames : META.getOwnValidAttributeNames,
+                getAspectMeta             : META.getAspectMeta,
+                setAspectMeta             : META.setAspectMeta,
+                deleteMetaAspect          : META.deleteMetaAspect,
+                getAspectTerritoryPattern : META.getAspectTerritoryPattern,
+                updateValidAspectItem     : META.updateValidAspectItem,
+                removeValidAspectItem     : META.removeValidAspectItem,
+
                 //end of META functions
 
                 //JSON functions

@@ -26,7 +26,8 @@ define(['jquery',
                                            METAAspectHelper,
                                            MetaEditorConstants) {
 
-    var _client;
+    var _client,
+        EXCLUDED_POINTERS = [CONSTANTS.POINTER_BASE, CONSTANTS.POINTER_SOURCE, CONSTANTS.POINTER_TARGET];
 
     var _initialize = function (client) {
         if (!_client) {
@@ -357,21 +358,6 @@ define(['jquery',
         return result;
     };
 
-    var _getValidReferenceTypes = function (parentId, targetId) {
-        var validReferenceTypes = _getMETAAspectMergedValidChildrenTypes(parentId),
-            i;
-
-        i = validReferenceTypes.length;
-        while (i--) {
-            if (!_client.isValidTarget(validReferenceTypes[i], CONSTANTS.POINTER_REF, targetId) ||
-                !_canCreateChild(parentId, validReferenceTypes[i])) {
-                validReferenceTypes.splice(i, 1);
-            }
-        }
-
-        return validReferenceTypes;
-    };
-
     var _canDeleteNode = function (objID) {
         var result = false;
 
@@ -402,25 +388,25 @@ define(['jquery',
         return validChildrenTypes;
     };
 
-    var _canAddToPointerList = function (objID, pointerListName, itemIDList) {
+    var _canAddToSet = function (objID, setName, itemIDList) {
         var obj = _client.getNode(objID),
-            pointerListMeta = _client.getPointerMeta(objID, pointerListName),
-            members = obj.getMemberIds(pointerListName) || [],
+            setMeta = _client.getPointerMeta(objID, setName),
+            members = obj.getMemberIds(setName) || [],
             result = true,
             i,
             baseId;
 
         //check #1: global multiplicity
-        if (pointerListMeta.max !== undefined &&
-            pointerListMeta.max > -1 &&
-            members.length + itemIDList.length > pointerListMeta.max) {
+        if (setMeta.max !== undefined &&
+            setMeta.max > -1 &&
+            members.length + itemIDList.length > setMeta.max) {
             result = false;
         }
 
         //check #2: is every item a valid target of the pointer list
         if (result === true) {
             for (i = 0; i < itemIDList.length; i += 1) {
-                if (!_client.isValidTarget(objID, pointerListName, itemIDList[i])) {
+                if (!_client.isValidTarget(objID, setName, itemIDList[i])) {
                     result = false;
                     break;
                 }
@@ -430,10 +416,10 @@ define(['jquery',
         //check #3: multiplicity check for each type
         if (result === true) {
             var maxPerType = {};
-            for (i = 0; i < pointerListMeta.items.length; i += 1) {
-                if (pointerListMeta.items[i].max !== undefined &&
-                    pointerListMeta.items[i].max > -1) {
-                    maxPerType[pointerListMeta.items[i].id] = pointerListMeta.items[i].max;
+            for (i = 0; i < setMeta.items.length; i += 1) {
+                if (setMeta.items[i].max !== undefined &&
+                    setMeta.items[i].max > -1) {
+                    maxPerType[setMeta.items[i].id] = setMeta.items[i].max;
                 }
             }
 
@@ -486,6 +472,34 @@ define(['jquery',
         return isPort === true;
     };
 
+    var _getValidPointerTypes = function (parentId, targetId) {
+        var validChildrenTypes = _getMETAAspectMergedValidChildrenTypes(parentId),
+            i,
+            childObj,
+            ptrNames,
+            j,
+            validPointerTypes = [];
+
+        i = validChildrenTypes.length;
+        while (i--) {
+            if (_canCreateChild(parentId, validChildrenTypes[i])) {
+                childObj = _client.getNode(validChildrenTypes[i]);
+                if (childObj) {
+                    ptrNames = _.difference(childObj.getPointerNames().slice(0), EXCLUDED_POINTERS);
+                    j = ptrNames.length;
+                    while (j--) {
+                        if (_client.isValidTarget(validChildrenTypes[i], ptrNames[j], targetId)) {
+                            validPointerTypes.push({'baseId': validChildrenTypes[i],
+                                                     'pointer': ptrNames[j]});
+                        }
+                    }
+                }
+            }
+        }
+
+        return validPointerTypes;
+    };
+
     //return utility functions
     return {
         initialize: _initialize,
@@ -498,12 +512,12 @@ define(['jquery',
         createBasicProjectSeed: _createBasicProjectSeed,
         isProjectFCO: _isProjectFCO,
         canCreateChildren: _canCreateChildren,
-        getValidReferenceTypes: _getValidReferenceTypes,
         canDeleteNode: _canDeleteNode,
         getMETAAspectMergedValidChildrenTypes: _getMETAAspectMergedValidChildrenTypes,
         getValidConnectionTypesInParent: _getValidConnectionTypesInParent,
-        canAddToPointerList: _canAddToPointerList,
+        canAddToSet: _canAddToSet,
         isAbstract: _isAbstract,
-        isPort: _isPort
+        isPort: _isPort,
+        getValidPointerTypes: _getValidPointerTypes
     }
 });
