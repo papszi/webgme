@@ -15,7 +15,7 @@ define(['logManager',
         this.pegasusTypeCheck = domainMeta.TYPE_INFO;
         this.currentObject;
         this.namespace; //Set from the currentObject's name
-        this.dx = 110;
+        this.dx = 140;
         this.dy = 0;
         var self = this;
 
@@ -47,7 +47,7 @@ define(['logManager',
         this.extraCopying = [];
 
         //Copying project
-        this._createOutputProject();
+        var outputId = this._createOutputProject();
         this._client.startTransaction();
 
         var childrenIds = this._client.getNode(this.currentObject).getChildrenIds();
@@ -58,16 +58,37 @@ define(['logManager',
             this.original2copy[this.params[i].parentId] = this._client.copyMoreNodes(this.params[i]);
         }
 
+        //Correct any incorrect connections - This assumes that all connections should be within the 
+        //project (dstId)
+        this._correctConnections(outputId);
+
         this._client.completeTransaction();
         this._client.startTransaction();
 
 
         //Make any extra copies that were requested
+        this.params = [{}];
+        while(this.extraCopying.length){
+            var job = this.extraCopying.splice(0, 1)[0];
+
+            if(!this._isContainedBy(job.id, outputId))
+                job.id = this.original2copy[job.dstId][job.id];
+
+                this._addToParams(job.id, job.dstId, job.attr);
+        }
+
+        i = this.params.length;
+        while(i--){
+            this.original2copy[this.params[i].parentId] = this._client.copyMoreNodes(this.params[i]);
+        }
+/*
         this.copyParams = {};
         while(this.extraCopying.length){
             var job = this.extraCopying.splice(0, 1)[0],
                 i = 0;
-            job.id = this.original2copy[job.dstId][job.id];
+
+            if(!this._isContainedBy(job.id, this.params[0].parentId))
+                job.id = this.original2copy[job.dstId][job.id];
 
             while(i < job.num){
 
@@ -90,9 +111,10 @@ define(['logManager',
                 }
             }
         }
+*/
         //Correct any incorrect connections - This assumes that all connections should be within the 
         //project (dstId)
-        this._correctConnections(this.params[0].parentId);
+        this._correctConnections(outputId);
 
         this._client.completeTransaction();
 
@@ -101,12 +123,14 @@ define(['logManager',
     PegasusInterpreter.prototype._createOutputProject = function(){
         var currentNode = this._client.getNode(this.currentObject),
             baseId = currentNode.getBaseId(),
-            name = "Generated From " + currentNode.getAttribute(nodePropertyNames.Attributes.name);
+            name = "Generated From " + currentNode.getAttribute(nodePropertyNames.Attributes.name),
+            outputId = this._client.createChild({ 'parentId': currentNode.getParentId(), 'baseId': baseId });
 
-        this.params[0].parentId = this._client.createChild({ 'parentId': currentNode.getParentId(), 'baseId': baseId });
+        this.params[0].parentId = outputId;
 
         this._setNodeAttributes(this.params[0].parentId, this.currentObject);
         this._client.setAttributes(this.params[0].parentId, nodePropertyNames.Attributes.name, name);
+        return outputId;
     };
 
 
@@ -173,6 +197,9 @@ define(['logManager',
                 var minY = null,
                     topNode = null;
                 while(i--){
+                    if(this.pegasusTypeCheck.isConnection(nIds[i]))//We will skip connections as start things
+                        continue;
+
                     var nodeId = nIds[i],
                         node = this._client.getNode(nodeId),
                         y = node.getRegistry("position").y;
@@ -228,7 +255,7 @@ define(['logManager',
 
                     //I will need to create "parallel tracks"
                     this._processForkOperation(path[i], dst, { 'prev': i > 1 ? path[i-2] : null, 'job': path[j], 'jobConn': path[j+1], 'next': j < path.length - 2 ? path[j+2] : null });
-                    i = j+2;
+                    i = j+1;
                 }else{//All created files will share prev/next things in the list!
                     this._processFileSet(path[i], dst, i > 1 ? path[i-2] : null, i < path.length - 2 ? path[i+2] : null);//this._getFileNames(path[i]);
                     i++;//Skip the next connection
@@ -243,28 +270,44 @@ define(['logManager',
         var fileObject = this._createFileFromFileSet(fsId, dst),
             file = fileObject.id,
             names = fileObject.names,
-            pos = [ fileObject.position, this._client.getNode(near.job).getRegistry('position')],
-            //count = names.length + 1,
+            pos = [ { 'x': fileObject.position.x, 'y': fileObject.position.y }, 
+                { 'x': this._client.getNode(near.job).getRegistry('position').x, 'y': this._client.getNode(near.job).getRegistry('position').y }],
             conns = [],
             dx = this.dx,
             dy = this.dy,
-            i = -1;//total files and jobs to create in parallel
+            i = -1,//total files and jobs to create in parallel
+            shift = { 'x': dx * (names.length + 1)/2, 'y': dy * (names.length+1)/2 };
         //TODO
         //
         //I need to:
         //
         //Create a connection from prev to first created file
-        conns.push(this._createConnection(dst, near.prev, file));
+        if(near.prev)
+            conns.push(this._createConnection(dst, near.prev, file));
 
         //Create a connection from file to job
         conns.push(this._createConnection(dst, file, near.job));
 
         //Create a connection from file to job
-        conns.push(this._createConnection(dst, near.job, near.next));
+        if(near.jobConn){
+            conns.push(near.jobConn);
+            this._addToParams(near.jobConn, dst);
+        }
+            //conns.push(this._createConnection(dst, near.job, near.next));
 
         //Copy the job
         this._addToParams(near.job, dst);
 
+        //Now I have created the structure to copy; just need to copy it
+        // (with extraCopying)
+
+        //Shift the pos values to roughly center the boxes
+        while(++i < 2){
+            pos[i].x = Math.max(0, pos[i].x - shift.x);
+            pos[i].y = Math.max(0, pos[i].y - shift.y);
+        }
+
+        i = -1;
         while(++i < names.length){//FIXME I may need to add these to "extra copying"
             var attr = {},
                 position = [ { 'x': pos[0].x+(i+1)*dx, 'y': pos[0].y+(i+1)*dy }, { 'x': pos[1] .x+(i+1)*dx, 'y': pos[1].y+(i+1)*dy }],
@@ -283,7 +326,8 @@ define(['logManager',
             */
             while(j--){
                 //Copy the conn(s) for each file copied
-                this._addToParams(conns[j], dst);
+                //this._addToParams(conns[j], dst);
+                this.extraCopying.push({ 'num': 1, 'id': conns[j], 'dstId': dst, 'attr': { 'attributes': {}, 'registry': {'position': position[1]} }});
             }
         }
         //Create a job
@@ -299,11 +343,12 @@ define(['logManager',
         var fileObject = this._createFileFromFileSet(fsId, dst),
             file = fileObject.id,
             names = fileObject.names,
-            pos = fileObject.position,
-            dx = 110,//TODO figure out an intelligent way to set these!
-            dy = 0,
+            pos = { 'x': fileObject.position.x, 'y': fileObject.position.y },
+            dx = this.dx,//TODO figure out an intelligent way to set these!
+            dy = this.dy,
             i = -1,
             conns = [];
+            //shift = { 'x': dx * (names.length + 1)/2, 'y': dy * (names.length+1)/2 };
 
         //Create the first connection (which we will copy)
         if(prev)
@@ -311,6 +356,10 @@ define(['logManager',
 
         if(next)
             conns.push(this._createConnection(dst, file, next));
+
+        //pos.x = Math.max(0, pos.x - shift.x);
+        //pos.y = Math.max(0, pos.y - shift.y);
+
 
         //Next, we will add these files to be copied
         while(++i < names.length){//FIXME add formatting to make it look nice
@@ -329,9 +378,14 @@ define(['logManager',
     };
 
     PegasusInterpreter.prototype._createFileFromFileSet = function(fsId, dst){
-        var pos = this._client.getNode(fsId).getRegistry('position'),//FIXME shouldn't be hardcoded
+        var pos = { 'x': this._client.getNode(fsId).getRegistry('position').x,//FIXME shouldn't be hardcoded
+                    'y': this._client.getNode(fsId).getRegistry('position').y },
             names = this._getFileNames(fsId),
-            fileId = this._client.createChild({ 'parentId': dst, 'baseId': this.pegasusTypes.File });
+            fileId = this._client.createChild({ 'parentId': dst, 'baseId': this.pegasusTypes.File }),
+            shift = { 'x': this.dx * (names.length-1)/2, 'y': this.dy * (names.length-1)/2 };//adjust pos by names and dx/dy
+
+        pos.x = Math.max(0, pos.x - shift.x);
+        pos.y = Math.max(0, pos.y - shift.y);
 
         this._client.setAttributes(fileId, nodePropertyNames.Attributes.name, names.splice(0,1)[0]);
         this._client.setRegistry(fileId, 'position', pos);
@@ -444,12 +498,16 @@ define(['logManager',
             var src = node.getPointer(CONSTANTS.POINTER_SOURCE).to,
                 dst = node.getPointer(CONSTANTS.POINTER_TARGET).to;
 
-            if(src.indexOf(parentId) !== 0)//Then points to something in another project
+            if(!this._isContainedBy(src, parentId))//Then points to something in another project
                 this._client.makePointer(nodeId, CONSTANTS.POINTER_SOURCE, this.original2copy[parentId][src]);
 
-            if(dst.indexOf(parentId) !== 0)
+            if(!this._isContainedBy(dst, parentId))//Then points to something in another project
                 this._client.makePointer(nodeId, CONSTANTS.POINTER_TARGET, this.original2copy[parentId][dst]);
         }
+    };
+
+    PegasusInterpreter.prototype._isContainedBy = function(id, parentId){
+        return id.indexOf(parentId) === 0;
     };
 
 return PegasusInterpreter;
