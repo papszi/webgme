@@ -289,7 +289,7 @@ define(['logManager',
         i = 0;
         while(++i < count){
             var attr = {},
-                position = { 'x': pos[0].x+(i+1)*dx, 'y': pos[0].y+(i+1)*dy };
+                position = { 'x': pos[0].x+(i)*dx, 'y': pos[0].y+(i)*dy };
 
             attr[nodePropertyNames.Attributes.name] = names[i];
             this.extraCopying.push({ 'num': 1, 'id': file, 'dstId': dst, 'attr': { 'attributes': attr, 'registry': {'position': position} }});
@@ -321,7 +321,7 @@ define(['logManager',
 
             /* * * * * * * * Now process things    * * * * * * * */
             var ofile,
-                outputNames = path[next] ? this._getFileNames(path[next]) : [],
+                outputNames = this.pegasusTypeCheck.isFileSet(path[next]) ? this._getFileNames(path[next]) : [],
                 nextJob;
 
             //Create output names
@@ -382,7 +382,7 @@ define(['logManager',
             i = 0;
             while(++i < count){
                 var attr = {},
-                    position = [ { 'x': pos[0] .x+(i+1)*dx, 'y': pos[0].y+(i+1)*dy }, { 'x': pos[1] .x+(i+1)*dx, 'y': pos[1].y+(i+1)*dy }],
+                    position = [ { 'x': pos[0] .x+(i)*dx, 'y': pos[0].y+(i)*dy }, { 'x': pos[1] .x+(i)*dx, 'y': pos[1].y+(i)*dy }],
                     j = conns.length;
 
                 attr[nodePropertyNames.Attributes.name] = outputNames[i];
@@ -450,7 +450,7 @@ define(['logManager',
             names = this._getFileNames(fsId),
             name = names[0],
             fileId = this._client.createChild({ 'parentId': dst, 'baseId': this.pegasusTypes.File }),
-            shift = { 'x': this.dx * (names.length-2)/2, 'y': this.dy * (names.length-2)/2 };//adjust pos by names and dx/dy
+            shift = { 'x': this.dx * (names.length-1)/2, 'y': this.dy * (names.length-1)/2 };//adjust pos by names and dx/dy
 
         pos.x = Math.max(0, pos.x - shift.x);
         pos.y = Math.max(0, pos.y - shift.y);
