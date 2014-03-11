@@ -8,6 +8,6 @@ define([], function () {
     'use strict';           
                             
     return {               
-        'DecoratorSVGIconList': ["Circle.svg","CloudComputing.svg","Ellipse.svg","Example.svg","Fork.svg","LargeRectangle.svg","Merge.svg","Port.svg","Rectangle.svg","Router.svg","Server.svg","SmallRectangle.svg","Wireless.svg"]  
+        'DecoratorSVGIconList': ["Circle.svg","CloudComputing.svg","Ellipse.svg","Example.svg","Fork.svg","LargeRectangle.svg","Merge.svg","Port.svg","Rectangle.svg","Router.svg","Server.svg","SmallCircle.svg","SmallRectangle.svg","Wireless.svg"]  
     };                      
 });

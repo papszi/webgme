@@ -23,6 +23,7 @@ define(['logManager',
     'js/Utils/PreferencesHelper',
     'js/ConstraintManager/ConstraintManager',
     'js/pegasusInterpreter',
+    'js/Interpreters/TurbulenceInterpreter',
     'js/genInterpreter'], function (logManager,
                                             CONFIG,
                                             packagejson,
@@ -42,6 +43,7 @@ define(['logManager',
                                             PreferencesHelper,
                                             ConstraintManager,
                                             PegasusInterpreter,
+                                            TurbulenceInterpreter,
                                             genInterpreter) {
     var npmJSON = JSON.parse(packagejson);
     WebGMEGlobal.version = npmJSON.version;
@@ -114,6 +116,7 @@ define(['logManager',
                     loadPanels(panels);
                 } else {
                     new PegasusInterpreter(client);
+                    new TurbulenceInterpreter(client);
                     new genInterpreter(client);
                     projectToLoad = projectToLoad === "" ? CONFIG.project : projectToLoad;
                     client.connectToDatabaseAsync({'open': projectToLoad,
