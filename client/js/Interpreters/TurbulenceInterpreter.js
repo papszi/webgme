@@ -58,9 +58,25 @@ define(['logManager',
         self._logger.warn('Running Turbulence Interpreter');
         
         // TO DO: check if the current node is a workflow
-        var name_of_the_project = self._client.getNode(self.currentObject).getAttribute('name');
+        var currentWorkflow = self._client.getNode(self.currentObject);
 
-        var childrenIds = self._client.getNode(this.currentObject).getChildrenIds();
+        if (!currentWorkflow) {
+            self._errorMessages('The current worksheet is not valid');
+            return;
+        }
+
+        // if (currentWorkflow.getBaseId() != domainMeta.META_TYPES['Workflow'] ) {
+        //     self._errorMessages('The current worksheet is not a workflow');
+        //     return;
+        // }
+        if (!domainMeta.TYPE_INFO.isWorkflow(self.currentObject)) {
+            self._errorMessages('The current worksheet is not a workflow');
+            return;
+        }
+
+        var name_of_the_project = currentWorkflow.getAttribute('name');
+
+        var childrenIds = currentWorkflow.getChildrenIds();
 
         var primitives = [];
         var dynamicPrimitives = [];
@@ -95,21 +111,16 @@ define(['logManager',
             }
         });
 
-        // console.dir(primitives);
-        // console.dir(dynamicPrimitives);
-        // console.log('procs');
-        // console.dir(procs);
-        // console.log('flows');
-        // console.dir(flows);
-
         var primitive_definitions = self._definePrimitives(primitives);
         var dynamic_definitions = self._defineDynamicPrimitives(dynamicPrimitives);
         var proc_definitions = self._defineProcs(procs, flows);
+        if (proc_definitions === null) {
+            return;
+        }
 
         var pre_script = '//    Copyright 2011 Johns Hopkins University\n//\n//  Licensed under the Apache License, Version 2.0 (the "License");\n//  you may not use this file except in compliance with the License.\n//  You may obtain a copy of the License at\n//\n//      http://www.apache.org/licenses/LICENSE-2.0\n//\n//  Unless required by applicable law or agreed to in writing, software\n//  distributed under the License is distributed on an "AS IS" BASIS,\n//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n//  See the License for the specific language governing permissions and\n//  limitations under the License.\n\n\n#include <stdio.h>\n#include <float.h>\n#include <math.h>\n#include "turblib.h"\n#include "spline_interp_lib.h"\n\nint main(int argc, char *argv[])\n{\n';
-        var post_script = '/* Free gSOAP resources */\n    soapdestroy();\n\n    return 0;\n}\n\n';
         var after_variables = '\n    /* Initialize gSOAP */\n    soapinit();\n    /* Enable exit on error.  See README for details. */\n    turblibSetExitOnError(1);\n';
-
+        var post_script = '/* Free gSOAP resources */\n    soapdestroy();\n\n    return 0;\n}\n\n';
         
         var full_script = pre_script;
 
@@ -135,11 +146,7 @@ define(['logManager',
             full_script += '    free(' + definition['name'] + ');\n';
         });
 
-        //add, freeing definitions
-
         full_script += post_script;
-
-        console.log(full_script);
 
         download(name_of_the_project + '.c', full_script);
 
@@ -155,6 +162,10 @@ define(['logManager',
         
     };
 
+    TurbulenceInterpreter.prototype._errorMessages = function(message) {
+        alert(message);
+    }
+
     TurbulenceInterpreter.prototype._defineProcs = function(procs, flows) {
         var self = this;
         var definitions = [];
@@ -165,6 +176,10 @@ define(['logManager',
                 var dst = flow_node.getPointer('dst')['to'];
                 var src_node = self._client.getNode(src);
                 var dst_node = self._client.getNode(dst);
+                if (!doTheTypesMatch(src_node, dst_node)) {
+                    errorTypesDoNotMatch(src_node, dst_node);
+                    return null;
+                }
                 if (isSignalValid(src)) {
                     var dest_proc = dst_node.getParentId();
                     procs[dest_proc]['inputs'][dst] = src;
@@ -194,6 +209,22 @@ define(['logManager',
         }
 
         return definitions;
+
+        function errorTypesDoNotMatch(src_node, dst_node) {
+            self._errorMessages('Signal flow types do not match: ' 
+                                + src_node.getAttribute('name') + '('
+                                + src_node.getAttribute('type') + ')'
+                                + ' -> '
+                                + dst_node.getAttribute('name') + '('
+                                + dst_node.getAttribute('type') + ')'
+                                );
+        }
+
+        function doTheTypesMatch(src, dst) {
+            if (src.getAttribute('type') != dst.getAttribute('type'))
+                return false;
+            return true;
+        }
 
         function isSignalValid(node_id) {
             var node = self._client.getNode(node_id);
