@@ -24,7 +24,9 @@ define(['logManager',
         WebGMEGlobal.Toolbar.addButton({ 'title': "Turbulence Interpreter",
             "text":"Turbulence", 
             "clickFn": function (){
-                self._client.updateTerritory(self._territoryId, { 'root': { 'children': 5 }}); //TODO Set the necessary depth!
+                var terr = {};
+                terr[CONSTANTS.PROJECT_ROOT_ID] = { 'children': 10 };//TODO Set the necessary depth!
+                self._client.updateTerritory(self._territoryId, terr); //TODO Set the necessary depth!
                 self._runTurbulenceInterpreter();
             }
         });
