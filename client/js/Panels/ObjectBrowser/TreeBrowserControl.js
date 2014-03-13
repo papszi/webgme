@@ -228,7 +228,7 @@ define(['logManager',
         //called when the user double-cliked on a node in the tree
         treeBrowser.onNodeDoubleClicked = function (nodeId) {
             logger.debug("Firing onNodeDoubleClicked with nodeId: " + nodeId);
-            client.setSelectedObjectId(nodeId);
+            WebGMEGlobal.State.setActiveObject(nodeId);
         };
 
         //called from the TreeBrowserWidget when a create function is called from context menu
@@ -300,7 +300,15 @@ define(['logManager',
                     ImportManager.import(nodeId, undefined, true);
                 },
                 "icon": false
-            }
+            };
+
+            menuItems["exportContext"] = { //Export context for plugin
+                "name": "Export context...",
+                "callback": function(/*key, options*/){
+                    ExportManager.exIntConf([nodeId]);
+                },
+                "icon": false
+            };
         };
 
         //called from the TreeBrowserWidget when a create function is called from context menu

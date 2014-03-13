@@ -52,11 +52,22 @@ define(['logManager',
     PropertyEditorController.prototype._initEventHandlers = function () {
         var self = this;
 
-        if (this._client) {
-            this._client.addEventListener(this._client.events.PROPERTY_EDITOR_SELECTION_CHANGED, function (__project, idList) {
-                self._selectedObjectsChanged(idList);
-            });
-        }
+        WebGMEGlobal.State.on('change:' + CONSTANTS.STATE_ACTIVE_SELECTION, function (model, activeSelection) {
+            if (activeSelection) {
+                self._selectedObjectsChanged(activeSelection);
+            } else {
+                self._selectedObjectsChanged([]);
+            }
+        });
+
+        WebGMEGlobal.State.on('change:' + CONSTANTS.STATE_ACTIVE_OBJECT, function (model, activeObjectId) {
+            if (activeObjectId || activeObjectId === CONSTANTS.PROJECT_ROOT_ID) {
+                self._selectedObjectsChanged([activeObjectId]);
+            } else {
+                self._selectedObjectsChanged([]);
+            }
+
+        });
 
         this._propertyGrid.onFinishChange(function (args) {
             self._onPropertyChanged(args);
@@ -88,6 +99,8 @@ define(['logManager',
                 self._refreshPropertyList();
             });
             this._client.updateTerritory(this._territoryId, patterns);
+        } else {
+            this._refreshPropertyList();
         }
     };
 

@@ -44,10 +44,6 @@ define(['logManager',
             throw ("ModelEditorControl can not be created");
         }
 
-        this._selectedObjectChanged = function (__project, nodeId) {
-            self.selectedObjectChanged(nodeId);
-        };
-
         if (this.designerCanvas === undefined) {
             this.logger.error("ModelEditorControl's DesignerCanvas is not specified...");
             throw ("ModelEditorControl can not be created");
@@ -78,7 +74,7 @@ define(['logManager',
             nodeName,
             self = this;
 
-        this.logger.debug("SELECTEDOBJECT_CHANGED nodeId '" + nodeId + "'");
+        this.logger.debug("activeObject '" + nodeId + "'");
 
         //delete everything from model editor
         this.designerCanvas.clear();
@@ -101,6 +97,9 @@ define(['logManager',
         this.currentNodeInfo.id = nodeId;
         this.currentNodeInfo.parentId = undefined;
 
+        this._delayedConnections = [];
+        this._selectedAspect = WebGMEGlobal.State.getActiveAspect();
+
         //since PROJECT_ROOT_ID is an empty string, it is considered false..
         if (nodeId || nodeId === CONSTANTS.PROJECT_ROOT_ID) {
             desc = this._getObjectDescriptor(nodeId);
@@ -112,7 +111,13 @@ define(['logManager',
 
             //put new node's info into territory rules
             this._selfPatterns = {};
-            this._selfPatterns[nodeId] = { "children": 2 };
+
+			 if (this._selectedAspect === CONSTANTS.ASPECT_ALL) {
+				this._selfPatterns[nodeId] = { "children": 2 };
+			} else {
+				this._selfPatterns[nodeId] = this._client.getAspectTerritoryPattern(nodeId, this._selectedAspect);
+				this._selfPatterns[nodeId].children = 2;
+			}
 
             this._firstLoad = true;
 
@@ -442,7 +447,7 @@ define(['logManager',
             this._firstLoad = false;
 
             //check if there is active selection set in client
-            var activeSelection = this._client.getActiveSelection();
+            var activeSelection = WebGMEGlobal.State.getActiveSelection();
 
             if (activeSelection && activeSelection.length > 0) {
                 i = activeSelection.length;
@@ -588,6 +593,7 @@ define(['logManager',
         } else {
             //currently opened node
             this._updateSheetName(objD.name);
+            this._updateAspects();
         }
 
         return territoryChanged;
@@ -608,6 +614,7 @@ define(['logManager',
             //the interest about the parent is:
             // - name change
             this._updateSheetName(objDesc.name);
+            this._updateAspects();
         } else {
             if (objDesc) {
                 if (objDesc.parentId === this.currentNodeInfo.id) {
@@ -756,9 +763,11 @@ define(['logManager',
     };
 
     ModelEditorControl.prototype._onModelHierarchyUp = function () {
+        var myId = this.currentNodeInfo.id;
         if (this.currentNodeInfo.parentId ||
             this.currentNodeInfo.parentId === CONSTANTS.PROJECT_ROOT_ID) {
-            this._client.setSelectedObjectId(this.currentNodeInfo.parentId);
+            WebGMEGlobal.State.setActiveObject(this.currentNodeInfo.parentId);
+            WebGMEGlobal.State.setActiveSelection([myId]);
         }
     };
 
@@ -893,13 +902,29 @@ define(['logManager',
         }
     };
 
+    ModelEditorControl.prototype._stateActiveObjectChanged = function (model, activeObjectId) {
+        this.selectedObjectChanged(activeObjectId);
+    };
+
+    ModelEditorControl.prototype._stateActiveSelectionChanged = function (model, activeSelection) {
+        if (this._settingActiveSelection !== true) {
+            if (activeSelection) {
+                this.activeSelectionChanged(activeSelection);
+            } else {
+                this.activeSelectionChanged([]);
+            }
+        }
+    };
+
     ModelEditorControl.prototype._attachClientEventListeners = function () {
         this._detachClientEventListeners();
-        this._client.addEventListener(this._client.events.SELECTEDOBJECT_CHANGED, this._selectedObjectChanged);
+        WebGMEGlobal.State.on('change:' + CONSTANTS.STATE_ACTIVE_OBJECT, this._stateActiveObjectChanged, this);
+        WebGMEGlobal.State.on('change:' + CONSTANTS.STATE_ACTIVE_SELECTION, this._stateActiveSelectionChanged, this);
     };
 
     ModelEditorControl.prototype._detachClientEventListeners = function () {
-        this._client.removeEventListener(this._client.events.SELECTEDOBJECT_CHANGED, this._selectedObjectChanged);
+        WebGMEGlobal.State.off('change:' + CONSTANTS.STATE_ACTIVE_OBJECT, this._stateActiveObjectChanged);
+        WebGMEGlobal.State.off('change:' + CONSTANTS.STATE_ACTIVE_SELECTION, this._stateActiveSelectionChanged);
     };
 
     ModelEditorControl.prototype.onActivate = function () {
@@ -994,6 +1019,94 @@ define(['logManager',
         } else {
             this.$btnModelHierarchyUp.hide();
         }
+    };
+
+    ModelEditorControl.prototype.activeSelectionChanged = function (activeSelection) {
+        var selectedIDs = [],
+            len = activeSelection.length;
+
+        while (len--) {
+            if (this._GmeID2ComponentID.hasOwnProperty(activeSelection[len])) {
+                selectedIDs = selectedIDs.concat(this._GmeID2ComponentID[activeSelection[len]]);
+            }
+        }
+
+        this.designerCanvas.select(selectedIDs);
+    };
+
+    ModelEditorControl.prototype._updateAspects = function () {
+        var objId = this.currentNodeInfo.id,
+            aspects,
+            tabID,
+            i,
+            selectedTabID;
+
+        this._aspects = {};
+        this.designerCanvas.clearTabs();
+
+        if (objId || objId === CONSTANTS.PROJECT_ROOT_ID) {
+            aspects = this._client.getMetaAspectNames(objId) || [];
+
+            aspects.sort(function (a,b) {
+                var an = a.toLowerCase(),
+                    bn = b.toLowerCase();
+
+                return (an < bn) ? -1 : 1;
+            });
+
+            aspects.splice(0,0,CONSTANTS.ASPECT_ALL);
+
+            for (i = 0; i < aspects.length; i += 1) {
+                tabID = this.designerCanvas.addTab(aspects[i]);
+
+                this._aspects[tabID] = aspects[i];
+
+                if (this._selectedAspect &&
+                    this._selectedAspect === aspects[i]) {
+                    selectedTabID = tabID;
+                }
+            }
+        }
+
+        if (!selectedTabID) {
+            for (selectedTabID in this._aspects) {
+                if (this._aspects.hasOwnProperty(selectedTabID)) {
+                    break;
+                }
+            }
+        }
+
+        this.designerCanvas.selectTab(selectedTabID);
+
+        //check if the node's aspect rules has changed or not, and if so, initialize with that
+        if (this._selectedAspect !== CONSTANTS.ASPECT_ALL) {
+            var nodeId = this.currentNodeInfo.id;
+            var newAspectRules = this._client.getAspectTerritoryPattern(nodeId, this._selectedAspect);
+            var aspectRulesChanged = false;
+
+            if (this._selfPatterns[nodeId].items && newAspectRules.items) {
+                aspectRulesChanged = (_.difference(this._selfPatterns[nodeId].items, newAspectRules.items)).length > 0;
+                if (aspectRulesChanged === false) {
+                    aspectRulesChanged = (_.difference(newAspectRules.items, this._selfPatterns[nodeId].items)).length > 0;
+                }
+            } else {
+                if (!this._selfPatterns[nodeId].items && !newAspectRules.items) {
+                    //none of them has items, no change
+                } else {
+                    aspectRulesChanged = true;
+                }
+            }
+
+            if (aspectRulesChanged) {
+                this.selectedObjectChanged(nodeId);
+            }
+        }
+    };
+
+    ModelEditorControl.prototype._initializeSelectedAspect = function () {
+        WebGMEGlobal.State.setActiveAspect(this._selectedAspect);
+
+        this.selectedObjectChanged(this.currentNodeInfo.id);
     };
 
     //attach ModelEditorControl - DesignerCanvas event handler functions

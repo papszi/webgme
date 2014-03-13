@@ -49,9 +49,6 @@ define([
                 _projectName = null,
                 _project = null,
                 _core = null,
-                _selectedObjectId = null,
-                _activeSelection = [],
-                _propertyEditorSelection = null,
                 _branch = null,
                 _branchState = null,
                 _nodes = {},
@@ -98,8 +95,6 @@ define([
 
             $.extend(_self, new EventDispatcher());
             _self.events = {
-                "SELECTEDOBJECT_CHANGED": "SELECTEDOBJECT_CHANGED",
-                "PROPERTY_EDITOR_SELECTION_CHANGED": "PROPERTY_EDITOR_SELECTION_CHANGED",
                 "NETWORKSTATUS_CHANGED" : "NETWORKSTATUS_CHANGED",
                 "BRANCHSTATUS_CHANGED"  : "BRANCHSTATUS_CHANGED",
                 "BRANCH_CHANGED"        : "BRANCH_CHANGED",
@@ -128,33 +123,7 @@ define([
             function newDatabase(){
                 return Storage({log:LogManager.create('client-storage')});
             }
-            function setSelectedObjectId(objectId, activeSelection) {
-                /*if (objectId !== _selectedObjectId) {*/
-                    if (activeSelection) {
-                        _activeSelection = [].concat(activeSelection);
-                    } else {
-                        _activeSelection = [];
-                    }
-                    _selectedObjectId = objectId;
-                    _self.dispatchEvent(_self.events.SELECTEDOBJECT_CHANGED, _selectedObjectId);
-                    setPropertyEditorIdList([objectId]);
-                /*}*/
-            }
-            function clearSelectedObjectId() {
-                setSelectedObjectId(null);
-            }
-            function setPropertyEditorIdList(idList) {
-                if (idList !== _propertyEditorSelection) {
-                    _propertyEditorSelection = idList;
-                    _self.dispatchEvent(_self.events.PROPERTY_EDITOR_SELECTION_CHANGED, _propertyEditorSelection);
-                }
-            }
-            function clearPropertyEditorIdList() {
-                setPropertyEditorIdList([]);
-            }
-            function getActiveSelection() {
-                return _activeSelection;
-            }
+
             function changeBranchState(newstate){
                 if(_branchState !== newstate){
                     _branchState = newstate;
@@ -544,7 +513,7 @@ define([
             function closeOpenedProject(callback){
                 callback = callback || function(){};
                 var returning = function(e){
-                    clearSelectedObjectId();
+
                     _projectName = null;
                     _inTransaction = false;
                     _core = null;
@@ -1509,7 +1478,7 @@ define([
                         if(_nodes[parameters.baseId]){
                             baseNode = _nodes[parameters.baseId].node || baseNode;
                         }
-                        var child = _core.createNode({parent:_nodes[parameters.parentId].node, base:baseNode});
+                        var child = _core.createNode({parent:_nodes[parameters.parentId].node, base:baseNode, guid:parameters.guid, relid:parameters.relid});
                         if (parameters.position) {
                             _core.setRegistry(child,"position", { "x": parameters.position.x || 100, "y": parameters.position.y || 100});
                         } else {
@@ -2163,6 +2132,10 @@ define([
                 }
                 return null;
             }
+
+            function getProjectObject(){
+                return _project;
+            }
             //initialization
             function initialize(){
                 _database = newDatabase();
@@ -2206,10 +2179,6 @@ define([
                 removeEventListener: _self.removeEventListener,
                 removeAllEventListeners: _self.removeAllEventListeners,
                 dispatchEvent: _self.dispatchEvent,
-                setSelectedObjectId: setSelectedObjectId,
-                clearSelectedObjectId: clearSelectedObjectId,
-                setPropertyEditorIdList: setPropertyEditorIdList,
-                clearPropertyEditorIdList: clearPropertyEditorIdList,
                 connect: connect,
 
                 getUserId : getUserId,
@@ -2239,8 +2208,6 @@ define([
                 goOnline: goOnline,
                 isProjectReadOnly: function(){ return _readOnlyProject;},
                 isCommitReadOnly: function(){return _viewer;},
-                getActiveSelection: getActiveSelection,
-
 
                 //MGA
                 startTransaction: startTransaction,
@@ -2306,14 +2273,17 @@ define([
                 isTypeOf                  : META.isTypeOf,
                 getValidAttributeNames    : META.getValidAttributeNames,
                 getOwnValidAttributeNames : META.getOwnValidAttributeNames,
-                getAspectMeta             : META.getAspectMeta,
-                setAspectMeta             : META.setAspectMeta,
+                getMetaAspectNames        : META.getMetaAspectNames,
+                getOwnMetaAspectNames     : META.getOwnMetaAspectNames,
+                getMetaAspect             : META.getMetaAspect,
+                setMetaAspect             : META.setMetaAspect,
                 deleteMetaAspect          : META.deleteMetaAspect,
                 getAspectTerritoryPattern : META.getAspectTerritoryPattern,
-                updateValidAspectItem     : META.updateValidAspectItem,
-                removeValidAspectItem     : META.removeValidAspectItem,
 
                 //end of META functions
+
+                //interpreters
+                getProjectObject: getProjectObject,
 
                 //JSON functions
                 exportItems: exportItems,
