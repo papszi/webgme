@@ -10,11 +10,15 @@
 define(['logManager',
         'js/NodePropertyNames',
         './TurbulencePrototype.Meta.js',
+        'text!./TurbulenceInterpreter.html',
         'js/Constants'], function (logManager,
-                                                    nodePropertyNames,
-                                                    domainMeta,
-                                                    CONSTANTS) {
+                                    nodePropertyNames,
+                                    domainMeta,
+                                    turbulenceInterpreterDialog,
+                                    CONSTANTS) {
   
+    var dialog_base = $(turbulenceInterpreterDialog);
+    
     var TurbulenceInterpreter = function(_client) {
         this._logger = logManager.create('TurbulenceInterpreter');
         this._client = _client;
@@ -58,21 +62,25 @@ define(['logManager',
 
         var self = this;
         self._logger.warn('Running Turbulence Interpreter');
+
+        self._dialog = dialog_base.clone();
+        // self._dialog.modal('show');
         
         // TO DO: check if the current node is a workflow
         var currentWorkflow = self._client.getNode(self.currentObject);
 
         if (!currentWorkflow) {
             self._errorMessages('The current worksheet is not valid');
+            self._logger.warn('Exiting Turbulence Interpreter');
             return;
         }
-
         // if (currentWorkflow.getBaseId() != domainMeta.META_TYPES['Workflow'] ) {
         //     self._errorMessages('The current worksheet is not a workflow');
         //     return;
         // }
         if (!domainMeta.TYPE_INFO.isWorkflow(self.currentObject)) {
             self._errorMessages('The current worksheet is not a workflow');
+            self._logger.warn('Exiting Turbulence Interpreter');
             return;
         }
 
@@ -165,7 +173,15 @@ define(['logManager',
     };
 
     TurbulenceInterpreter.prototype._errorMessages = function(message) {
-        alert(message);
+        var self = this;
+        var dialogBody = self._dialog.find(".modal-body");
+        var $div = $('<div/>', {
+            class: 'alert',
+            html: message
+        });
+        dialogBody.append($div);
+        this._dialog.modal('show');
+        // alert(message);
     }
 
     TurbulenceInterpreter.prototype._defineProcs = function(procs, flows) {
