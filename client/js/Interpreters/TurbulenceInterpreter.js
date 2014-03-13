@@ -22,22 +22,27 @@ define(['logManager',
     var TurbulenceInterpreter = function(_client) {
         this._logger = logManager.create('TurbulenceInterpreter');
         this._client = _client;
-        // this.currentObject = '/-28';
         var self = this;
 
         WebGMEGlobal.Toolbar.addButton({ 'title': "Turbulence Interpreter",
             "text":"Turbulence", 
             "clickFn": function (){
                 var terr = {};
-                terr[CONSTANTS.PROJECT_ROOT_ID] = { 'children': 10 };//TODO Set the necessary depth!
+                console.log(WebGMEGlobal.State.getActiveObject());
+                terr[WebGMEGlobal.State.getActiveObject()] = { 'children': 10 };//TODO Set the necessary depth!
+                // terr[CONSTANTS.PROJECT_ROOT_ID] = { 'children': 10 };//TODO Set the necessary depth!
                 self._client.updateTerritory(self._territoryId, terr); //TODO Set the necessary depth!
                 self._runTurbulenceInterpreter();
+                // ..WebGMEGlobal.State.getActiveObject()
             }
         });
 
-        this._client.addEventListener(this._client.events.SELECTEDOBJECT_CHANGED, function (__project, nodeId) {
-            self.currentObject = nodeId;
+        WebGMEGlobal.State.on('change:' + CONSTANTS.STATE_ACTIVE_OBJECT, function(modal, active_object_id) {
+            self.currentObject = active_object_id;
         });
+        // this._client.addEventListener(this._client.events.SELECTEDOBJECT_CHANGED, function (__project, nodeId) {
+        //     self.currentObject = nodeId;
+        // });
 
     };
     var primitiveBaseId = domainMeta.META_TYPES['PrimitiveParameter'];
@@ -67,7 +72,10 @@ define(['logManager',
         // self._dialog.modal('show');
         
         // TO DO: check if the current node is a workflow
+        // this.currentObject = '/-6';
         var currentWorkflow = self._client.getNode(self.currentObject);
+        console.dir(currentWorkflow);
+        console.dir(self.currentObject);
 
         if (!currentWorkflow) {
             self._errorMessages('The current worksheet is not valid');

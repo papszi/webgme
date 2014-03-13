@@ -25,7 +25,7 @@ define(['logManager',
     'js/ConstraintManager/ConstraintManager',
     'js/pegasusInterpreter',
     'js/Interpreters/TurbulenceInterpreter',
-    'js/genInterpreter'], function (logManager,
+    'js/genInterpreter',
     'js/Utils/InterpreterManager'], function (logManager,
                                             CONFIG,
                                             packagejson,
@@ -47,7 +47,7 @@ define(['logManager',
                                             ConstraintManager,
                                             PegasusInterpreter,
                                             TurbulenceInterpreter,
-                                            genInterpreter) {
+                                            genInterpreter,
                                             InterpreterManager) {
 
     var npmJSON = JSON.parse(packagejson);
