@@ -39,9 +39,6 @@ define(['logManager',
         WebGMEGlobal.State.on('change:' + CONSTANTS.STATE_ACTIVE_OBJECT, function(modal, active_object_id) {
             self.currentObject = active_object_id;
         });
-        // this._client.addEventListener(this._client.events.SELECTEDOBJECT_CHANGED, function (__project, nodeId) {
-        //     self.currentObject = nodeId;
-        // });
 
     };
     var primitiveBaseId = domainMeta.META_TYPES['PrimitiveParameter'];
@@ -53,38 +50,20 @@ define(['logManager',
     var orderingFlowId = domainMeta.META_TYPES['Ordering_Flow'];
     var bufferFlowId = domainMeta.META_TYPES['Buffer_Flow'];
 
-    // var primitiveBaseId = '/-18';
-    // var dynamicPrimitiveBaseId = '/-19';
-    // var procId = '/-3';
-    // var flowBaseId = '/-20';
-    // var inputPortId = '/-16';
-    // var outputPortId = '/-17';
-    // var orderingFlowId = '/-24';
-    // var bufferFlowId = '/-25';
-
     TurbulenceInterpreter.prototype._runTurbulenceInterpreter = function() {
 
         var self = this;
         self._logger.warn('Running Turbulence Interpreter');
 
         self._dialog = dialog_base.clone();
-        // self._dialog.modal('show');
         
-        // TO DO: check if the current node is a workflow
-        // this.currentObject = '/-6';
         var currentWorkflow = self._client.getNode(self.currentObject);
-        console.dir(currentWorkflow);
-        console.dir(self.currentObject);
 
         if (!currentWorkflow) {
             self._errorMessages('The current worksheet is not valid');
             self._logger.warn('Exiting Turbulence Interpreter');
             return;
         }
-        // if (currentWorkflow.getBaseId() != domainMeta.META_TYPES['Workflow'] ) {
-        //     self._errorMessages('The current worksheet is not a workflow');
-        //     return;
-        // }
         if (!domainMeta.TYPE_INFO.isWorkflow(self.currentObject)) {
             self._errorMessages('The current worksheet is not a workflow');
             self._logger.warn('Exiting Turbulence Interpreter');
@@ -387,7 +366,7 @@ define(['logManager',
                 if (child_node != null) {
                     var ref_node = self._client.getNode(child_node.getPointer('ref')['to']);
                     var ref_name = ref_node.getAttribute('name');
-                    var def = name + ' = (' + type + '*)malloc(sizeof(' + type + ')*' + ref_name + '*' + size;
+                    var def = name + ' = (' + type + '*)malloc(sizeof(' + type + ')*' + ref_name + '*' + size + ');';
                     definitions.push({name: name, def: def});
                 }
             });
