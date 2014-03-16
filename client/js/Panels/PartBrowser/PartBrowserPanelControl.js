@@ -236,6 +236,7 @@ define(['logManager',
         desc.metaInfo = {};
         desc.metaInfo[CONSTANTS.GME_ID] = id;
         desc.preferencesHelper = PreferencesHelper.getPreferences();
+        desc.aspect = this._aspect;
 
         return desc;
     };
