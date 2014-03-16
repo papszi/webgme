@@ -28,7 +28,6 @@ define(['logManager',
             "text":"Turbulence", 
             "clickFn": function (){
                 var terr = {};
-                console.log(WebGMEGlobal.State.getActiveObject());
                 terr[WebGMEGlobal.State.getActiveObject()] = { 'children': 10 };//TODO Set the necessary depth!
                 // terr[CONSTANTS.PROJECT_ROOT_ID] = { 'children': 10 };//TODO Set the necessary depth!
                 self._client.updateTerritory(self._territoryId, terr); //TODO Set the necessary depth!
