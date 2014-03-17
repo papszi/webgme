@@ -41,10 +41,10 @@ define(['logManager',
         });
 
     };
-    var primitiveBaseId = domainMeta.META_TYPES['PrimitiveParameter'];
-    var dynamicPrimitiveBaseId = domainMeta.META_TYPES['DynamicPrimitiveParameter'];
+    var primitiveBaseId = domainMeta.META_TYPES['Primitive_Parameter'];
+    var dynamicPrimitiveBaseId = domainMeta.META_TYPES['Buffer'];
     var procId = domainMeta.META_TYPES['Proc'];
-    var flowBaseId = domainMeta.META_TYPES['InputFlow'];
+    var flowBaseId = domainMeta.META_TYPES['Input_Flow'];
     var inputPortId = domainMeta.META_TYPES['Input'];
     var outputPortId = domainMeta.META_TYPES['Output'];
     var orderingFlowId = domainMeta.META_TYPES['Ordering_Flow'];
@@ -93,7 +93,7 @@ define(['logManager',
                 for (var i = 0; i < ports_of_proc.length; i++) {
                     var port_node = self._client.getNode(ports_of_proc[i]);
                     var port_node_baseId = port_node.getBaseId();
-                    if (port_node_baseId == inputPortId) {
+                    if (port_node_baseId == domainMeta.META_TYPES['Parameter_Input'] || port_node_baseId == domainMeta.META_TYPES['Signal_Input']) {
                         inputs[ports_of_proc[i]] = false;
                     }
                 }
@@ -107,9 +107,17 @@ define(['logManager',
             }
         });
 
+        self._logger.warn('define primitives');
         var primitive_definitions = self._definePrimitives(primitives);
+
+
+        self._logger.warn('define buffers');
         var dynamic_definitions = self._defineDynamicPrimitives(dynamicPrimitives);
+
+        self._logger.warn('define procs');
         var proc_definitions = self._defineProcs(procs, flows);
+        
+        self._logger.warn('Script generation');
         if (proc_definitions === null) {
             return;
         }
@@ -125,7 +133,7 @@ define(['logManager',
             full_script += '    ' + definition + '\n';
         });
 
-        full_script += '\n //Dynamic Definitions\n';
+        full_script += '\n //Buffer Definitions\n';
         dynamic_definitions.forEach(function(definition) {
             full_script += '    ' + definition['def'] + '\n';
         });
@@ -139,7 +147,8 @@ define(['logManager',
 
         full_script += '\n //Free Buffers\n';
         dynamic_definitions.forEach(function(definition) {
-            full_script += '    free(' + definition['name'] + ');\n';
+            if (definition['name'] != '' )
+                full_script += '    free(' + definition['name'] + ');\n';
         });
 
         full_script += post_script;
@@ -174,6 +183,7 @@ define(['logManager',
         var self = this;
         var definitions = [];
         while (!isAllProcessed(procs)) {
+            console.log('begin');
             for (var j = 0; j < flows.length; j++) {
                 var flow_node = self._client.getNode(flows[j]);
                 var src = flow_node.getPointer('src')['to'];
@@ -263,12 +273,9 @@ define(['logManager',
         var orderingFlows = [];
         var bufferFlows = [];
 
-        // console.log(node.getAttribute('name'));
-        // console.dir(childrenIds);
-        
         childrenIds.forEach(function(child_id) {
             var base_id = self._client.getNode(child_id).getBaseId();
-            if (base_id == inputPortId) {
+            if (base_id == domainMeta.META_TYPES['Parameter_Input'] || base_id == domainMeta.META_TYPES['Signal_Input']) {
                 inputs[child_id] = 0;
                 inputsRegular.push(child_id);
             } else if (base_id == orderingFlowId) {
@@ -277,11 +284,6 @@ define(['logManager',
                 bufferFlows.push(child_id);
             }
         });
-
-        // console.log('inputs');
-        // console.dir(inputs);
-        // console.log('orderingFlows');
-        // console.dir(orderingFlows);
 
         var initialInput = [];
         orderingFlows.forEach(function(flow) {
@@ -322,7 +324,8 @@ define(['logManager',
         //nd is the output port
         function getNameOfInput(nd, isOutputToo) {
             var nn = self._client.getNode(nd);
-            if (nn.getBaseId() == primitiveBaseId) {
+            if (!nn) return 'something happened here';
+            if (nn.getBaseId() == primitiveBaseId || !nn.getAttribute('pointer') ) {
                 var param = isOutputToo ? '&' : '';
                 param += nn.getAttribute('name');
                 return param;
@@ -354,21 +357,33 @@ define(['logManager',
         var definitions = [];
         try {
             list.forEach(function(element_id) {
+
+
                 var node = self._client.getNode(element_id);
                 var name = node.getAttribute('name');
                 var type = node.getAttribute('type');
                 var size = node.getAttribute('size');
-                
-                var childrenIds = node.getChildrenIds();
-                var child = childrenIds[0];
-                var child_node = self._client.getNode(child);
+                var isPointer = node.getAttribute('pointer');
 
-                if (child_node != null) {
-                    var ref_node = self._client.getNode(child_node.getPointer('ref')['to']);
-                    var ref_name = ref_node.getAttribute('name');
-                    var def = name + ' = (' + type + '*)malloc(sizeof(' + type + ')*' + ref_name + '*' + size + ');';
+                if (isPointer) {
+                    var childrenIds = node.getChildrenIds();
+                    var child = childrenIds[0];
+                    var child_node = self._client.getNode(child);
+
+                    // child type should be int -> check
+                    var def = name + ' = (' + type + '*)malloc(sizeof(' + type + ')*';
+                    if (child_node != null) {
+                        var ref_node = self._client.getNode(child_node.getPointer('ref')['to']);
+                        var ref_name = ref_node.getAttribute('name');
+                        def += ref_name + '*';
+                    }
                     definitions.push({name: name, def: def});
+                    def += size + ');';
+                } else {
+                    def = self._definePrimitives([element_id]);                  
+                    definitions.push({name: '', def: def});
                 }
+                
             });
         } catch(e) {
             console.log(e);
