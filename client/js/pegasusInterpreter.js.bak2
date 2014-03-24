@@ -81,6 +81,37 @@ define(['logManager',
         while(i--){
             this.original2copy[this.params[i].parentId] = this._client.copyMoreNodes(this.params[i]);
         }
+/*
+        this.copyParams = {};
+        while(this.extraCopying.length){
+            var job = this.extraCopying.splice(0, 1)[0],
+                i = 0;
+
+            if(!this._isContainedBy(job.id, this.params[0].parentId))
+                job.id = this.original2copy[job.dstId][job.id];
+
+            while(i < job.num){
+
+                if(this.copyParams[job.dstId] === undefined)
+                    this.copyParams[job.dstId] = [{ 'parentId': job.dstId }];
+
+                if(i === this.copyParams[job.dstId].length)
+                    this.copyParams[job.dstId].push({ 'parentId': job.dstId });
+
+                this.copyParams[job.dstId][i][job.id] = job.attr;
+                i++;
+            }
+        }
+
+        for(var plist in this.copyParams){
+            if(this.copyParams.hasOwnProperty(plist)){
+                i = this.copyParams[plist].length;
+                while(i--){
+                    this._client.copyMoreNodes(this.copyParams[plist][i]);
+                }
+            }
+        }
+*/
         //Correct any incorrect connections - This assumes that all connections should be within the 
         //project (dstId)
         this._correctConnections(outputId);
@@ -215,7 +246,16 @@ define(['logManager',
                 this._addToParams(path[i], dst);
             }else if(this.pegasusTypeCheck.isFileSet(path[i])){
                 if(this.pegasusTypeCheck.isFork(path[i+2])){//Next is a Fork/Dot operator!
-                    i = this._processForkOperation(dst, path, i);
+                    //Get the next process
+                    var j = i+4,
+                        next = path[j];
+                    while(!this.pegasusTypeCheck.isJob(next)){
+                        next = path[j+=2];
+                    }
+
+                    //I will need to create "parallel tracks"
+                    this._processForkOperation(path[i], dst, { 'prev': i > 1 ? path[i-2] : null, 'job': path[j], 'jobConn': path[j+1], 'next': j < path.length - 2 ? path[j+2] : null });
+                    i = j+1;
                 }else{//All created files will share prev/next things in the list!
                     this._processFileSet(path[i], dst, i > 1 ? path[i-2] : null, i < path.length - 2 ? path[i+2] : null);//this._getFileNames(path[i]);
                     i++;//Skip the next connection
@@ -226,157 +266,85 @@ define(['logManager',
         }
     };
 
-    PegasusInterpreter.prototype._processForkOperation = function(dst, path, index){
-        //Get the next process
-        var prev = index >= 1 ? index - 2 : -1,
-            fsId = index,
-            next,
-            job,
-            jobConn,
-            next,
-            nextItem,
-            conns = [],
-            count = this._getFileNames(path[index]).length,
-            fileObject = this.pegasusTypeCheck.isFileSet(path[fsId]) ? this._createFileFromFileSet(path[fsId], dst) : 
-                                    { 'id': path[fsId], 'name': this._client.getNode(path[fsId]).getAttribute(nodePropertyNames.Attributes.name), 
-                                        'position': this._client.getNode(path[fsId]).getRegistry('position') },
+    PegasusInterpreter.prototype._processForkOperation = function(fsId, dst, near){
+//var nextjob = path[i+;
+        var fileObject = this._createFileFromFileSet(fsId, dst),
             file = fileObject.id,
+            ofile,
+            names = fileObject.names,
+            pos = [ { 'x': fileObject.position.x, 'y': fileObject.position.y }, 
+                { 'x': this._client.getNode(near.job).getRegistry('position').x, 'y': this._client.getNode(near.job).getRegistry('position').y }],
+            conns = [],
             dx = this.dx,
             dy = this.dy,
             i = -1,//total files and jobs to create in parallel
-            names = fileObject.names,
-            shift = {'x': dx * (count-2)/2, 'y': dy * (count-2)/2 },
-            pos = [ { 'x': fileObject.position.x, 'y': fileObject.position.y }]; //input
+            shift = { 'x': dx * (names.length + 1)/2, 'y': dy * (names.length+1)/2 },
+            outputNames = [fileObject.name].concat(names);
 
-        //Need to handle the filesets, connection to prev on the first run only.
+        //Create output names
+        while(++i < outputNames.length){
+            //Change the output name
+            var j;
+            if((j = outputNames[i].lastIndexOf(".out")) !== -1){
+                var base = outputNames[i].substr(0, j + 4),
+                    count = parseInt(outputNames.substr(j + 4));
 
-        //prev to first created file
-        if(prev !== -1)
-            conns.push(this._createConnection(dst, path[prev], file));
-
-        //Copy the initial fileset
-        i = 0;
-        while(++i < count){
-            var attr = {},
-                position = { 'x': pos[0].x+(i)*dx, 'y': pos[0].y+(i)*dy };
-
-            attr[nodePropertyNames.Attributes.name] = names[i];
-            this.extraCopying.push({ 'num': 1, 'id': file, 'dstId': dst, 'attr': { 'attributes': attr, 'registry': {'position': position} }});
+                outputNames[i] = base + (count + 1);
+            }else{
+                outputNames[i] += outputNames[i]+ '.out';
+            }
         }
 
-        do {
-            /* * * * * * * * Find the next important values    * * * * * * * */
-            prev = index >= 1 ? index - 2 : -1;
-            fsId = index;
-            index += 4;
-            job = index;
-            while(!this.pegasusTypeCheck.isJob(path[job]) && job < path.length - 2){
-                job += 2;
+        //Create a connection from prev to first created file
+        if(near.prev)
+            conns.push(this._createConnection(dst, near.prev, file));
+
+        //Create a connection from file to job
+        conns.push(this._createConnection(dst, file, near.job));
+
+        //Create a connection from file to job
+        if(near.jobConn){
+            conns.push(near.jobConn);
+            this._addToParams(near.jobConn, dst);
+        }
+
+        //Copy the job
+        this._addToParams(near.job, dst);
+
+        //Now I have created the structure to copy; just need to copy it
+        // (with extraCopying)
+
+        //Shift the pos values to roughly center the boxes
+        while(++i < 2){
+            pos[i].x = Math.max(0, pos[i].x - shift.x);
+            pos[i].y = Math.max(0, pos[i].y - shift.y);
+        }
+
+        i = -1;
+        while(++i < names.length){
+            var attr = {},
+                position = [ { 'x': pos[0].x+(i+1)*dx, 'y': pos[0].y+(i+1)*dy }, { 'x': pos[1] .x+(i+1)*dx, 'y': pos[1].y+(i+1)*dy }],
+                j = conns.length;
+
+            attr[nodePropertyNames.Attributes.name] = names[i];
+
+            this.extraCopying.push({ 'num': 1, 'id': file, 'dstId': dst, 'attr': { 'attributes': attr, 'registry': {'position': position[0]} }});
+            this.extraCopying.push({ 'num': 1, 'id': near.job, 'dstId': dst, 'attr': { 'attributes': {}, 'registry': {'position': position[1]} }});
+            /*
+            this._addToParams(file, dst, { 'attributes': attr, 'registry': {'position': position[0]} }); //FIXME shouldn't be hardcoded!
+
+            //Copy over a process (change the location)
+            this._addToParams(near.job, dst, { 'attributes': {}, 'registry': {'position': position[1]} }); //FIXME shouldn't be hardcoded!
+
+            */
+            while(j--){
+                //Copy the conn(s) for each file copied
+                //this._addToParams(conns[j], dst);
+                this.extraCopying.push({ 'num': 1, 'id': conns[j], 'dstId': dst, 'attr': { 'attributes': {}, 'registry': {'position': position[1]} }});
             }
+        }
+        //TODO Add return value
 
-            jobConn = job + 1;
-            next = jobConn < path.length - 1 ? jobConn + 1 : -1;
-            nextItem = next < path.length - 2 ? next + 2 : -1;
-
-            if(!fileObject){//This will happen all but first iteration
-                fileObject = { 'id': path[fsId], 'name': this._client.getNode(path[fsId]).getAttribute(nodePropertyNames.Attributes.name), 
-                               'position': this._client.getNode(path[fsId]).getRegistry('position') };
-                names = outputNames;
-            }
-            file = fileObject.id;
-            i = -1;//total files and jobs to create in parallel
-            pos = [{ 'x': this._client.getNode(path[job]).getRegistry('position').x, 
-                'y': this._client.getNode(path[job]).getRegistry('position').y }];//input, job, output
-
-            /* * * * * * * * Now process things    * * * * * * * */
-            var ofile,
-                outputNames = this.pegasusTypeCheck.isFileSet(path[next]) ? this._getFileNames(path[next]) : [],
-                nextJob;
-            //TODO if path[next] is not a fileset, create one and insert it into the path array
-
-            //Create output names
-            if(outputNames.length < count){
-                outputNames = names.slice(0);
-                while(++i < outputNames.length){
-                    var j;
-                    if((j = outputNames[i].lastIndexOf(".out")) !== -1){
-                        var base = outputNames[i].substr(0, j + 4),
-                            c = parseInt(outputNames[i].substr(j + 4)) || 1;
-
-                        outputNames[i] = base + (c + 1);
-                    }else{
-                        outputNames[i] += '.out';
-                    }
-                }
-            }
-
-            //Create output file
-            ofile = this._client.createChild({ 'parentId': dst, 'baseId': this.pegasusTypes.File });
-            shift = { 'x': this.dx * (outputNames.length-2)/2, 'y': this.dy * (outputNames.length-2)/2 };
-            pos.push({ 'x': this._client.getNode(path[next]).getRegistry('position').x,//FIXME shouldn't be hardcoded
-                    'y': this._client.getNode(path[next]).getRegistry('position').y });
-
-            pos[1].x = Math.max(0, pos[1].x - shift.x);
-            pos[1].y = Math.max(0, pos[1].y - shift.y);
-
-            this._client.setAttributes(ofile, nodePropertyNames.Attributes.name, outputNames[0]);
-            this._client.setRegistry(ofile, 'position', pos[1]);
-
-            //In case we are doing another iteration...
-            path[next] = ofile;
-
-            /* * * * Connections * * * * */
-            //file to job
-            conns.push(this._createConnection(dst, file, path[job]));
-
-            if(path[nextItem] && !this.pegasusTypeCheck.isFork(path[nextItem]))
-                conns.push(this._createConnection(dst, ofile, path[nextItem]));
-
-            //file to job
-            if(jobConn !== -1){
-                //Fix JobConn to point to the correct output file
-                path[jobConn] = this._createConnection(dst, path[job], ofile);
-                conns.push(path[jobConn]);
-            }
-
-            //Now I have created the structure to copy; just need to copy it
-            // (with extraCopying)
-
-            //Shift the pos values to roughly center the boxes
-            pos[0].x = Math.max(0, pos[0].x - shift.x);
-            pos[0].y = Math.max(0, pos[0].y - shift.y);
-
-            //Copy the first job
-            this._addToParams(path[job], dst, { 'attributes': {}, 'registry': {'position': pos[0]} });
-
-            i = 0;
-            while(++i < count){
-                var attr = {},
-                    position = [ { 'x': pos[0] .x+(i)*dx, 'y': pos[0].y+(i)*dy }, { 'x': pos[1] .x+(i)*dx, 'y': pos[1].y+(i)*dy }],
-                    j = conns.length;
-
-                attr[nodePropertyNames.Attributes.name] = outputNames[i];
-
-                this.extraCopying.push({ 'num': 1, 'id': path[job], 'dstId': dst, 'attr': { 'registry': {'position': position[0]} }});
-                this.extraCopying.push({ 'num': 1, 'id': ofile, 'dstId': dst, 'attr': { 'attributes': attr, 'registry': {'position': position[1]} }});
-
-                while(j--){
-                    //TODO Remove the 'num' attribute - deprecated
-                    //Copy the conn(s) for each file copied
-                    this.extraCopying.push({ 'num': 1, 'id': conns[j], 'dstId': dst, 'attr': { 'registry': {'position': position[1]} }});
-                }
-            }
-
-            index = next;
-            conns = [];//Clear conns for next run
-            fileObject = null;
-        } while(nextItem !== -1 && this.pegasusTypeCheck.isFork(path[nextItem]));
-
-        //Correct the connection to path[nextItem]
-        //if(path[nextItem]){
-            //path[nextItem-1] = this._createConnection(dst, path[next], path[nextItem]);
-        //}
-        return index+1;
     };
 
     PegasusInterpreter.prototype._processFileSet = function(fsId, dst, prev, next){
@@ -386,7 +354,7 @@ define(['logManager',
             pos = { 'x': fileObject.position.x, 'y': fileObject.position.y },
             dx = this.dx,//TODO figure out an intelligent way to set these!
             dy = this.dy,
-            i = 0,
+            i = -1,
             conns = [];
             //shift = { 'x': dx * (names.length + 1)/2, 'y': dy * (names.length+1)/2 };
 
@@ -396,6 +364,10 @@ define(['logManager',
 
         if(next)
             conns.push(this._createConnection(dst, file, next));
+
+        //pos.x = Math.max(0, pos.x - shift.x);
+        //pos.y = Math.max(0, pos.y - shift.y);
+
 
         //Next, we will add these files to be copied
         while(++i < names.length){//FIXME add formatting to make it look nice
@@ -417,17 +389,16 @@ define(['logManager',
         var pos = { 'x': this._client.getNode(fsId).getRegistry('position').x,//FIXME shouldn't be hardcoded
                     'y': this._client.getNode(fsId).getRegistry('position').y },
             names = this._getFileNames(fsId),
-            name = names[0],
             fileId = this._client.createChild({ 'parentId': dst, 'baseId': this.pegasusTypes.File }),
             shift = { 'x': this.dx * (names.length-1)/2, 'y': this.dy * (names.length-1)/2 };//adjust pos by names and dx/dy
 
         pos.x = Math.max(0, pos.x - shift.x);
         pos.y = Math.max(0, pos.y - shift.y);
 
-        this._client.setAttributes(fileId, nodePropertyNames.Attributes.name, name);
+        this._client.setAttributes(fileId, nodePropertyNames.Attributes.name, names.splice(0,1)[0]);
         this._client.setRegistry(fileId, 'position', pos);
 
-        return { 'id': fileId, 'name': name, 'names': names, 'position': pos };
+        return { 'id': fileId, 'names': names, 'position': pos };
     };
 
     PegasusInterpreter.prototype._createConnection = function(dstId, src, dst){
