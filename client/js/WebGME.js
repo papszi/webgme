@@ -14,6 +14,7 @@ define(['logManager',
     'js/Utils/GMEVisualConcepts',
     'js/Utils/ExportManager',
     'js/Utils/ImportManager',
+    'js/Utils/StateManager',
     'js/LayoutManager/LayoutManager',
     'js/Decorators/DecoratorManager',
     'js/KeyboardManager/KeyboardManager',
@@ -23,7 +24,7 @@ define(['logManager',
     'js/Utils/PreferencesHelper',
     'js/ConstraintManager/ConstraintManager',
     'js/pegasusInterpreter',
-    'js/genInterpreter'], function (logManager,
+    'js/Utils/InterpreterManager'], function (logManager,
                                             CONFIG,
                                             packagejson,
                                             Client,
@@ -33,6 +34,7 @@ define(['logManager',
                                             GMEVisualConcepts,
                                             ExportManager,
                                             ImportManager,
+                                            StateManager,
                                             LayoutManager,
                                             DecoratorManager,
                                             KeyboardManager,
@@ -42,7 +44,8 @@ define(['logManager',
                                             PreferencesHelper,
                                             ConstraintManager,
                                             PegasusInterpreter,
-                                            genInterpreter) {
+                                            InterpreterManager) {
+
     var npmJSON = JSON.parse(packagejson);
     WebGMEGlobal.version = npmJSON.version;
 
@@ -55,7 +58,9 @@ define(['logManager',
             projectToLoad = util.getURLParameterByName('project'),
             objectToLoad = util.getURLParameterByName('obj').toLowerCase(),
             logger = logManager.create('WebGME'),
-            selectObject;
+            selectObject,
+            loadBranch,
+            branchToLoad = util.getURLParameterByName('branch') || CONFIG.branch;
 
         lm = new LayoutManager();
         lm.loadLayout(layoutToLoad, function () {
@@ -68,7 +73,14 @@ define(['logManager',
 
             WebGMEGlobal.ConstraintManager = new ConstraintManager(client);
 
-            WebGMEHistory.setClient(client);
+            WebGMEGlobal.InterpreterManager = new InterpreterManager(client);
+
+            Object.defineProperty(WebGMEGlobal, 'State', {value : StateManager.initialize(),
+                writable : false,
+                enumerable : true,
+                configurable : false});
+
+            WebGMEHistory.initialize();
 
             GMEConcepts.initialize(client);
             GMEVisualConcepts.initialize(client);
@@ -85,6 +97,11 @@ define(['logManager',
             });
             client.addEventListener(client.events.PROJECT_OPENED, function (__project, projectName) {
                 lm.setPanelReadOnly(client.isProjectReadOnly());
+            });
+
+            //on project close clear the current state
+            client.addEventListener(client.events.PROJECT_CLOSED, function (__project, projectName) {
+                WebGMEGlobal.State.clear();
             });
 
             client.decoratorManager = new DecoratorManager();
@@ -114,14 +131,16 @@ define(['logManager',
                     loadPanels(panels);
                 } else {
                     new PegasusInterpreter(client);
-                    new genInterpreter(client);
+                    //new genInterpreter(client);
                     projectToLoad = projectToLoad === "" ? CONFIG.project : projectToLoad;
                     client.connectToDatabaseAsync({'open': projectToLoad,
                                                     'project': projectToLoad}, function (err) {
                         if (err) {
                             logger.error(err);
                         } else {
-                            if (commitToLoad && commitToLoad !== "") {
+                            if (branchToLoad && branchToLoad !== '') {
+                                loadBranch(branchToLoad);
+                            } else  if (commitToLoad && commitToLoad !== "") {
                                 client.selectCommitAsync(commitToLoad, function (err) {
                                     if (err) {
                                         logger.error(err);
@@ -144,9 +163,17 @@ define(['logManager',
                     objectToLoad = CONSTANTS.PROJECT_ROOT_ID;
                 }
                 setTimeout(function () {
-                    client.setSelectedObjectId(objectToLoad);
+                    WebGMEGlobal.State.setActiveObject(objectToLoad);
                 }, 1000);
             }
+        };
+
+        loadBranch = function (branchName) {
+            client.selectBranchAsync(branchName, function (err) {
+                if (err) {
+                    logger.error(err);
+                }
+            });
         };
     };
 

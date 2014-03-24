@@ -4,7 +4,6 @@ define(['logManager',
     'clientUtil',
     'js/NodePropertyNames',
     'js/RegistryKeys',
-    'js/Decorators/DecoratorDB',
     'js/Constants',
     'js/Utils/DisplayFormat',
     'js/Dialogs/DecoratorSVGExplorer/DecoratorSVGExplorerDialog',
@@ -13,7 +12,6 @@ define(['logManager',
                                         util,
                                         nodePropertyNames,
                                         REGISTRY_KEYS,
-                                        DecoratorDB,
                                         CONSTANTS,
                                         displayFormat,
                                         DecoratorSVGExplorerDialog,
@@ -22,7 +20,8 @@ define(['logManager',
 
     var PropertyEditorController,
         META_REGISTRY_KEYS = [REGISTRY_KEYS.IS_PORT,
-                                    REGISTRY_KEYS.IS_ABSTRACT],
+            REGISTRY_KEYS.IS_ABSTRACT,
+            REGISTRY_KEYS.VALID_PLUGINS],
         PREFERENCES_REGISTRY_KEYS = [REGISTRY_KEYS.DECORATOR,
             REGISTRY_KEYS.DISPLAY_FORMAT,
             REGISTRY_KEYS.SVG_ICON,
@@ -52,11 +51,22 @@ define(['logManager',
     PropertyEditorController.prototype._initEventHandlers = function () {
         var self = this;
 
-        if (this._client) {
-            this._client.addEventListener(this._client.events.PROPERTY_EDITOR_SELECTION_CHANGED, function (__project, idList) {
-                self._selectedObjectsChanged(idList);
-            });
-        }
+        WebGMEGlobal.State.on('change:' + CONSTANTS.STATE_ACTIVE_SELECTION, function (model, activeSelection) {
+            if (activeSelection) {
+                self._selectedObjectsChanged(activeSelection);
+            } else {
+                self._selectedObjectsChanged([]);
+            }
+        });
+
+        WebGMEGlobal.State.on('change:' + CONSTANTS.STATE_ACTIVE_OBJECT, function (model, activeObjectId) {
+            if (activeObjectId || activeObjectId === CONSTANTS.PROJECT_ROOT_ID) {
+                self._selectedObjectsChanged([activeObjectId]);
+            } else {
+                self._selectedObjectsChanged([]);
+            }
+
+        });
 
         this._propertyGrid.onFinishChange(function (args) {
             self._onPropertyChanged(args);
@@ -88,6 +98,8 @@ define(['logManager',
                 self._refreshPropertyList();
             });
             this._client.updateTerritory(this._territoryId, patterns);
+        } else {
+            this._refreshPropertyList();
         }
     };
 
@@ -120,7 +132,16 @@ define(['logManager',
             _client = this._client,
             _isResetableAttribute,
             _isResetableRegistry,
-            _isResetablePointer;
+            _isResetablePointer,
+            decoratorNames = _client.getAvailableDecoratorNames();
+
+        decoratorNames.sort(function (a,b) {
+            if (a.toLowerCase() < b.toLowerCase()) {
+                return -1;
+            } else {
+                return 1;
+            }
+        });
 
         _getNodeAttributeValues = function (node) {
             var result =  {},
@@ -468,7 +489,7 @@ define(['logManager',
                             if (i === REGISTRY_KEYS.DECORATOR) {
                                 //dstList[extKey].valueType = "option";
                                 //TODO: only the decorators for DiagramDesigner are listed so far, needs to be fixed...
-                                dstList[extKey].valueItems = DecoratorDB.getDecoratorsByWidget('DiagramDesigner');
+                                dstList[extKey].valueItems = decoratorNames;
                             }
 
                             //if the attribute value is an enum, display the enum values

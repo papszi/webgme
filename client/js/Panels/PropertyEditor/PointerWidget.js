@@ -20,7 +20,7 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
             this._div = $('<div/>', {'class': 'ptr-widget'});
             this.el.append(this._div);
 
-            this.__label = $('<span/>', {});
+            this.__label = $('<span/>', {'class': 'user-select-on'});
             this._div.append(this.__label);
 
 
@@ -103,9 +103,11 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
                 targetNodeObj = _client.getNode(ptrTo);
                 if (targetNodeObj) {
                     if (targetNodeObj.getParentId() || targetNodeObj.getParentId() === CONSTANTS.PROJECT_ROOT_ID) {
-                        _client.setSelectedObjectId(targetNodeObj.getParentId(), ptrTo);
+                        WebGMEGlobal.State.setActiveObject(targetNodeObj.getParentId());
+                        WebGMEGlobal.State.setActiveSelection([ptrTo]);
                     } else {
-                        _client.setSelectedObjectId(CONSTANTS.PROJECT_ROOT_ID, ptrTo);
+                        WebGMEGlobal.State.setActiveObject(CONSTANTS.PROJECT_ROOT_ID);
+                        WebGMEGlobal.State.setActiveSelection([ptrTo]);
                     }
                 }
             }
