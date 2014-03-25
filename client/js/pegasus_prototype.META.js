@@ -34,6 +34,7 @@ define(['underscore',
 		'Multiplexer': '/-3/-13',
 		'Preview_Conn': '/-3/1520956416',
 		'Preview_File': '/-3/755800864',
+		'Preview_Job': '/-3/542589132',
 		'Split_Operation': '/-3/-4',
 		'file2fileset': '/-3/-12',
 		'fileset2file': '/-3/-25'
@@ -60,6 +61,7 @@ define(['underscore',
 	var _isMultiplexer = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Multiplexer); };
 	var _isPreview_Conn = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Preview_Conn); };
 	var _isPreview_File = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Preview_File); };
+	var _isPreview_Job = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Preview_Job); };
 	var _isSplit_Operation = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Split_Operation); };
 	var _isfile2fileset = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.file2fileset); };
 	var _isfileset2file = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.fileset2file); };
@@ -124,6 +126,7 @@ define(['underscore',
 			isMultiplexer: _isMultiplexer,
 			isPreview_Conn: _isPreview_Conn,
 			isPreview_File: _isPreview_File,
+			isPreview_Job: _isPreview_Job,
 			isSplit_Operation: _isSplit_Operation,
 			isfile2fileset: _isfile2fileset,
 			isfileset2file: _isfileset2file
