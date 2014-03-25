@@ -22,35 +22,40 @@ define(['logManager',
         WebGMEGlobal.Toolbar.addButton({ 'title': "Pegasus Interpreter",
             "text":"Pegasus", 
             "clickFn": function (){
-                self._client.updateTerritory(self._territoryId, { 'root': { 'children': 5 }});
+            var terr = {};
+            terr[WebGMEGlobal.State.getActiveObject()] = { 'root': { 'children': 5 }};
+                self._client.updateTerritory(self._territoryId, terr);
                 self._runPegasusInterpreter();
             }
         });
 
-        this._client.addEventListener(this._client.events.SELECTEDOBJECT_CHANGED, function (__project, nodeId) {
-            self.currentObject = nodeId;
+        WebGMEGlobal.State.on('change:' + CONSTANTS.STATE_ACTIVE_OBJECT, function(modal, active_object_id){
+                self.currentObject = active_object_id;
         });
 
     };
 
         //I will need to find the portions of the model that need to be duplicated
         //Algorithm:
-        //Working from the top left to the bottom right, 
-            //I will need to expand from the most enclosed version (recursively?)
-            //Keep track of the "push zones" or the areas that objects need to be moved from (to make space)
-        //Finally, add all the remaining objects with respect to the "push zones"
+        //Working from the top down
+            //I will copy the filesets to files
+            //Resolve the Fork operators
+        //Add extra copies to make
     PegasusInterpreter.prototype._runPegasusInterpreter = function(){
         this._logger.info("Running Pegasus Interpreter");
         this.original2copy = {}; //Mapping original node ids to copy
         this.boxes2process = [];
-        this.params = [{}];
+        this.params = [{ 'parentId': this.currentObject }];
         this.extraCopying = [];
 
         //Copying project
-        var outputId = this._createOutputProject();
+        var outputId = this.currentObject;//this._createOutputProject();
+        
         this._client.startTransaction();
 
-        var childrenIds = this._client.getNode(this.currentObject).getChildrenIds();
+        //var childrenIds = this._client.getNode(this.currentObject).getChildrenIds();
+        var childrenIds = this._getChildrenAndClearPreview();//delete previously generated preview
+
         this._createCopyLists(childrenIds, this.params[0].parentId);
 
         var i = this.params.length;
@@ -89,6 +94,30 @@ define(['logManager',
 
     };
 
+    PegasusInterpreter.prototype._getChildrenAndClearPreview = function(){
+        //This method gets the children ids and removes the preview nodes before returning it
+        var childrenIds = this._client.getNode(this.currentObject).getChildrenIds(),
+            deleteIds = [],
+            i = -1;
+
+        while(++i < childrenIds.length){
+            if(this._isInPreviewAspect(childrenIds[i]))
+                deleteIds.push(childrenIds.splice(i--,1)[0]);
+        }
+
+        this._client.delMoreNodes(deleteIds);
+
+        return childrenIds;
+    };
+
+    PegasusInterpreter.prototype._isInPreviewAspect = function(id){
+        if(this.pegasusTypeCheck.isPreview_File(id) || this.pegasusTypeCheck.isPreview_Job(id) 
+                || this.pegasusTypeCheck.isPreview_Conn(id))
+            return true;
+
+        return false;
+    };
+
     PegasusInterpreter.prototype._createOutputProject = function(){
         var currentNode = this._client.getNode(this.currentObject),
             baseId = currentNode.getBaseId(),
@@ -102,6 +131,15 @@ define(['logManager',
         return outputId;
     };
 
+    PegasusInterpreter.prototype._createCopyLists = function(nIds, dstId){
+        var paths = this._createPaths(nIds),//Create lists out of lists
+            i = paths.length;
+
+        //Next, for each path, I will resolve the dot operators then the filesets
+        while(i--){
+            this._copyPath(paths[i], dstId);
+        }
+    };
 
     PegasusInterpreter.prototype._createPaths = function(nIds){
         //Find start node
@@ -116,7 +154,7 @@ define(['logManager',
         //If it is linked to the last node, add it
         //O.W. get the highest node
         while(nIds.length){
-           if(paths[p_i].length){
+            if(paths[p_i].length){
                 //Get next point
                 //Get the connected nodes
                 var index = paths.length-1,
@@ -148,15 +186,15 @@ define(['logManager',
 
                         if(src === searchId || dst === searchId
                                 || src.indexOf(searchId+'/') !== -1 || dst.indexOf(searchId+'/') !== -1){//Then they are connected (to obj or children)
-                            //add the nodeId to the nodeIds list
-                            next[0] = nodeId;
-                            added = true;
-                            break;
-                        }
+                                    //add the nodeId to the nodeIds list
+                                    next[0] = nodeId;
+                                    added = true;
+                                    break;
+                                }
                     }
                 }
-                    if(!added)//End of the given path
-                        p_i++;
+                if(!added)//End of the given path
+                    p_i++;
 
             }else{
                 //Get start point
@@ -192,36 +230,34 @@ define(['logManager',
                 paths[p_i].push(next[0]);
                 nIds.splice(nIds.indexOf(next[0]),1);
             }
- 
+
         }
         return paths;
     };
 
-    PegasusInterpreter.prototype._createCopyLists = function(nIds, dstId){
-        var paths = this._createPaths(nIds),//Create lists out of lists
-            i = paths.length;
-
-        //Next, for each path, I will resolve the dot operators then the filesets
-        while(i--){
-            this._copyPath(paths[i], dstId);
-        }
-    };
-
     PegasusInterpreter.prototype._copyPath = function(path, dst, dis){
-        //Find the maximal width TODO
         var i = -1;
         while(++i < path.length){
             if(this.pegasusTypeCheck.isConnection(path[i]) && !this.pegasusTypeCheck.isFileSet(path[i+1])){
-                this._addToParams(path[i], dst);
+                path[i+1] = this._createPreviewNode(dst, path[i+1]);
+                this._createConnection(dst, path[i-1], path[i+1]);
+                //this._addToParams(path[i], dst);
+                i++;
+
             }else if(this.pegasusTypeCheck.isFileSet(path[i])){
                 if(this.pegasusTypeCheck.isFork(path[i+2])){//Next is a Fork/Dot operator!
                     i = this._processForkOperation(dst, path, i);
                 }else{//All created files will share prev/next things in the list!
-                    this._processFileSet(path[i], dst, i > 1 ? path[i-2] : null, i < path.length - 2 ? path[i+2] : null);//this._getFileNames(path[i]);
+                    if(i < path.length -2)
+                        path[i+2] = this._createPreviewNode(dst, path[i+2]);
+
+                    this._processFileSet(path[i], dst, i > 1 ? path[i-2] : null, i < path.length - 2 ? path[i+2] : null);
                     i++;//Skip the next connection
                 }
+
             }else if(!this.pegasusTypeCheck.isConnection(path[i])){
-                this._addToParams(path[i], dst);
+                //this._addToParams(path[i], dst);
+                path[i] = this._createPreviewNode(dst, path[i]);
             }
         }
     };
@@ -238,8 +274,8 @@ define(['logManager',
             conns = [],
             count = this._getFileNames(path[index]).length,
             fileObject = this.pegasusTypeCheck.isFileSet(path[fsId]) ? this._createFileFromFileSet(path[fsId], dst) : 
-                                    { 'id': path[fsId], 'name': this._client.getNode(path[fsId]).getAttribute(nodePropertyNames.Attributes.name), 
-                                        'position': this._client.getNode(path[fsId]).getRegistry('position') },
+            { 'id': path[fsId], 'name': this._client.getNode(path[fsId]).getAttribute(nodePropertyNames.Attributes.name), 
+                'position': this._client.getNode(path[fsId]).getRegistry('position') },
             file = fileObject.id,
             dx = this.dx,
             dy = this.dy,
@@ -280,7 +316,7 @@ define(['logManager',
 
             if(!fileObject){//This will happen all but first iteration
                 fileObject = { 'id': path[fsId], 'name': this._client.getNode(path[fsId]).getAttribute(nodePropertyNames.Attributes.name), 
-                               'position': this._client.getNode(path[fsId]).getRegistry('position') };
+                    'position': this._client.getNode(path[fsId]).getRegistry('position') };
                 names = outputNames;
             }
             file = fileObject.id;
@@ -311,7 +347,6 @@ define(['logManager',
             }
 
             //Create output file
-            ofile = this._client.createChild({ 'parentId': dst, 'baseId': this.pegasusTypes.File });
             shift = { 'x': this.dx * (outputNames.length-2)/2, 'y': this.dy * (outputNames.length-2)/2 };
             pos.push({ 'x': this._client.getNode(path[next]).getRegistry('position').x,//FIXME shouldn't be hardcoded
                     'y': this._client.getNode(path[next]).getRegistry('position').y });
@@ -319,8 +354,7 @@ define(['logManager',
             pos[1].x = Math.max(0, pos[1].x - shift.x);
             pos[1].y = Math.max(0, pos[1].y - shift.y);
 
-            this._client.setAttributes(ofile, nodePropertyNames.Attributes.name, outputNames[0]);
-            this._client.setRegistry(ofile, 'position', pos[1]);
+            ofile = this._createFile(dst, outputNames[0], pos[1]);
 
             //In case we are doing another iteration...
             path[next] = ofile;
@@ -372,10 +406,6 @@ define(['logManager',
             fileObject = null;
         } while(nextItem !== -1 && this.pegasusTypeCheck.isFork(path[nextItem]));
 
-        //Correct the connection to path[nextItem]
-        //if(path[nextItem]){
-            //path[nextItem-1] = this._createConnection(dst, path[next], path[nextItem]);
-        //}
         return index+1;
     };
 
@@ -388,7 +418,7 @@ define(['logManager',
             dy = this.dy,
             i = 0,
             conns = [];
-            //shift = { 'x': dx * (names.length + 1)/2, 'y': dy * (names.length+1)/2 };
+        //shift = { 'x': dx * (names.length + 1)/2, 'y': dy * (names.length+1)/2 };
 
         //Create the first connection (which we will copy)
         if(prev)
@@ -415,29 +445,75 @@ define(['logManager',
 
     PegasusInterpreter.prototype._createFileFromFileSet = function(fsId, dst){
         var pos = { 'x': this._client.getNode(fsId).getRegistry('position').x,//FIXME shouldn't be hardcoded
-                    'y': this._client.getNode(fsId).getRegistry('position').y },
+            'y': this._client.getNode(fsId).getRegistry('position').y },
             names = this._getFileNames(fsId),
             name = names[0],
-            fileId = this._client.createChild({ 'parentId': dst, 'baseId': this.pegasusTypes.File }),
+            fileId, 
             shift = { 'x': this.dx * (names.length-1)/2, 'y': this.dy * (names.length-1)/2 };//adjust pos by names and dx/dy
 
         pos.x = Math.max(0, pos.x - shift.x);
         pos.y = Math.max(0, pos.y - shift.y);
 
-        this._client.setAttributes(fileId, nodePropertyNames.Attributes.name, name);
-        this._client.setRegistry(fileId, 'position', pos);
+        fileId = this._createFile(dst, name, pos);
 
         return { 'id': fileId, 'name': name, 'names': names, 'position': pos };
     };
 
     PegasusInterpreter.prototype._createConnection = function(dstId, src, dst){
-        var baseId = this.pegasusTypes.Job_Conn,
+        var baseId = this.pegasusTypes.Preview_Conn,
             connId;
 
         connId = this._client.createChild({ 'parentId': dstId, 'baseId': baseId });
         this._client.makePointer(connId, CONSTANTS.POINTER_SOURCE, src);
         this._client.makePointer(connId, CONSTANTS.POINTER_TARGET, dst);
         return connId;
+    };
+
+    PegasusInterpreter.prototype._createPreviewNode = function(dst, id){
+        //Creates the Preview_File/Job 
+        var node = this._client.getNode(id),
+            name = node.getAttribute(nodePropertyNames.Attributes.name),
+            pos = node.getRegistry('position');
+
+        if(this.pegasusTypeCheck.isFile(id)){
+
+            id = this._createFile(dst, name, pos);
+
+        }else if(this.pegasusTypeCheck.isJob(id)){
+
+            var cmd = node.getAttribute('cmd');
+            id = this._createJob(dst, name, cmd, pos);
+
+        }
+
+        return id;
+    };
+
+    PegasusInterpreter.prototype._createFile = function(dstId, name, pos){
+        //Create a file type only viewable in the "Preview" aspect: Preview_File
+        var baseId = this.pegasusTypes.Preview_File,
+            fileId;
+
+        fileId = this._client.createChild({ 'parentId': dstId, 'baseId': baseId });
+
+        this._client.setAttributes(fileId, nodePropertyNames.Attributes.name, name);//Set name
+        this._client.setRegistry(fileId, 'position', pos);//Set position
+
+        return fileId;
+    };
+
+    PegasusInterpreter.prototype._createJob = function(dstId, name, cmd, pos){
+        //Create a file type only viewable in the "Preview" aspect: Preview_File
+        var baseId = this.pegasusTypes.Preview_Job,
+            jobId;
+
+        jobId = this._client.createChild({ 'parentId': dstId, 'baseId': baseId });
+
+        this._client.setAttributes(jobId, nodePropertyNames.Attributes.name, name);//Set name
+        this._client.setAttributes(jobId, 'cmd', cmd);//Set name
+        this._client.setRegistry(jobId, 'position', pos);//Set position
+
+        return jobId;
     };
 
     PegasusInterpreter.prototype._getFileNames = function(fsId){//FileSet node
@@ -547,5 +623,5 @@ define(['logManager',
         return id.indexOf(parentId) === 0;
     };
 
-return PegasusInterpreter;
-});
+    return PegasusInterpreter;
+        });
