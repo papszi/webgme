@@ -87,7 +87,7 @@ define(['logManager',
         }
 
         function storeQueryString(req,res,next){
-            if(req.session.originalQuery === undefined){
+            if( req && req.session && req.session.originalQuery === undefined){
                 var index = req.url.indexOf('?');
                 req.session.originalQuery = index === -1 ? "" : req.url.substring(index);
             }
@@ -276,6 +276,10 @@ define(['logManager',
             res.redirect('/');
         });
 
+        __logger.info("creating decorator specific routing rules");
+        __app.get('/bin/getconfig/',ensureAuthenticated,function(req,res){
+            res.json(CONFIG);
+        });
         __logger.info("creating decorator specific routing rules");
         __app.get(/^\/decorators\/.*/,ensureAuthenticated,function(req,res){
             var tryNext = function(index){
