@@ -16,7 +16,6 @@ define(['underscore',
     var _metaTypes = {
 		'Attr_Conn': '/-3/-30',
 		'Attribute': '/-3/-14',
-		'Collect': '/-3/-1',
 		'Connection': '/-3/-24',
 		'F2FS_Conn': '/-3/-67',
 		'FCO': '/-3/-22',
@@ -33,6 +32,8 @@ define(['underscore',
 		'Merge_operation': '/-3/-3',
 		'MetaLanguageContainer': '/-3/-71',
 		'Multiplexer': '/-3/-13',
+		'Preview_Conn': '/-3/1520956416',
+		'Preview_File': '/-3/755800864',
 		'Split_Operation': '/-3/-4',
 		'file2fileset': '/-3/-12',
 		'fileset2file': '/-3/-25'
@@ -41,7 +42,6 @@ define(['underscore',
     //META ASPECT TYPE CHECKING
     var _isAttr_Conn = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Attr_Conn); };
 	var _isAttribute = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Attribute); };
-	var _isCollect = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Collect); };
 	var _isConnection = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Connection); };
 	var _isF2FS_Conn = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.F2FS_Conn); };
 	var _isFCO = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.FCO); };
@@ -58,6 +58,8 @@ define(['underscore',
 	var _isMerge_operation = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Merge_operation); };
 	var _isMetaLanguageContainer = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.MetaLanguageContainer); };
 	var _isMultiplexer = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Multiplexer); };
+	var _isPreview_Conn = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Preview_Conn); };
+	var _isPreview_File = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Preview_File); };
 	var _isSplit_Operation = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Split_Operation); };
 	var _isfile2fileset = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.file2fileset); };
 	var _isfileset2file = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.fileset2file); };
@@ -104,7 +106,6 @@ define(['underscore',
         TYPE_INFO: {
 			isAttr_Conn: _isAttr_Conn,
 			isAttribute: _isAttribute,
-			isCollect: _isCollect,
 			isConnection: _isConnection,
 			isF2FS_Conn: _isF2FS_Conn,
 			isFCO: _isFCO,
@@ -121,6 +122,8 @@ define(['underscore',
 			isMerge_operation: _isMerge_operation,
 			isMetaLanguageContainer: _isMetaLanguageContainer,
 			isMultiplexer: _isMultiplexer,
+			isPreview_Conn: _isPreview_Conn,
+			isPreview_File: _isPreview_File,
 			isSplit_Operation: _isSplit_Operation,
 			isfile2fileset: _isfile2fileset,
 			isfileset2file: _isfileset2file
