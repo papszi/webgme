@@ -118,19 +118,6 @@ define(['logManager',
         return false;
     };
 
-    PegasusInterpreter.prototype._createOutputProject = function(){
-        var currentNode = this._client.getNode(this.currentObject),
-            baseId = currentNode.getBaseId(),
-            name = "Generated From " + currentNode.getAttribute(nodePropertyNames.Attributes.name),
-            outputId = this._client.createChild({ 'parentId': currentNode.getParentId(), 'baseId': baseId });
-
-        this.params[0].parentId = outputId;
-
-        this._setNodeAttributes(this.params[0].parentId, this.currentObject);
-        this._client.setAttributes(this.params[0].parentId, nodePropertyNames.Attributes.name, name);
-        return outputId;
-    };
-
     PegasusInterpreter.prototype._createCopyLists = function(nIds, dstId){
         var paths = this._createPaths(nIds),//Create lists out of lists
             i = paths.length;
@@ -252,7 +239,7 @@ define(['logManager',
                         path[i+2] = this._createPreviewNode(dst, path[i+2]);
 
                     this._processFileSet(path[i], dst, i > 1 ? path[i-2] : null, i < path.length - 2 ? path[i+2] : null);
-                    i++;//Skip the next connection
+                    i+=2;//Skip the next connection and job
                 }
 
             }else if(!this.pegasusTypeCheck.isConnection(path[i])){
@@ -348,6 +335,10 @@ define(['logManager',
 
             //Create output file
             shift = { 'x': this.dx * (outputNames.length-2)/2, 'y': this.dy * (outputNames.length-2)/2 };
+
+            if(path[next] === undefined)//Make sure we have an output file!
+                throw "Operation needs an output file!";
+
             pos.push({ 'x': this._client.getNode(path[next]).getRegistry('position').x,//FIXME shouldn't be hardcoded
                     'y': this._client.getNode(path[next]).getRegistry('position').y });
 
@@ -359,12 +350,26 @@ define(['logManager',
             //In case we are doing another iteration...
             path[next] = ofile;
 
+            /* * * * * * Job * * * * * */
+            //Shift the pos values to roughly center the boxes
+            pos[0].x = Math.max(0, pos[0].x - shift.x);
+            pos[0].y = Math.max(0, pos[0].y - shift.y);
+
+            
+            //Copy the first job
+            var job_node = this._client.getNode(path[job]);
+
+            path[job] = this._createJob(dst, job_node.getAttribute(nodePropertyNames.Attributes.name), job_node.getAttribute('cmd'), pos[0]);
+
+
             /* * * * Connections * * * * */
             //file to job
             conns.push(this._createConnection(dst, file, path[job]));
 
-            if(path[nextItem] && !this.pegasusTypeCheck.isFork(path[nextItem]))
+            if(path[nextItem] && !this.pegasusTypeCheck.isFork(path[nextItem])){
+                path[nextItem] = this._createPreviewNode(dst, path[nextItem]);
                 conns.push(this._createConnection(dst, ofile, path[nextItem]));
+            }
 
             //file to job
             if(jobConn !== -1){
@@ -375,13 +380,6 @@ define(['logManager',
 
             //Now I have created the structure to copy; just need to copy it
             // (with extraCopying)
-
-            //Shift the pos values to roughly center the boxes
-            pos[0].x = Math.max(0, pos[0].x - shift.x);
-            pos[0].y = Math.max(0, pos[0].y - shift.y);
-
-            //Copy the first job
-            this._addToParams(path[job], dst, { 'attributes': {}, 'registry': {'position': pos[0]} });
 
             i = 0;
             while(++i < count){
@@ -406,7 +404,7 @@ define(['logManager',
             fileObject = null;
         } while(nextItem !== -1 && this.pegasusTypeCheck.isFork(path[nextItem]));
 
-        return index+1;
+        return index+2;
     };
 
     PegasusInterpreter.prototype._processFileSet = function(fsId, dst, prev, next){
@@ -479,9 +477,9 @@ define(['logManager',
 
             id = this._createFile(dst, name, pos);
 
-        }else if(this.pegasusTypeCheck.isJob(id)){
+        }else {//if(this.pegasusTypeCheck.isJob(id)){
 
-            var cmd = node.getAttribute('cmd');
+            var cmd = node.getAttribute('cmd') || "MACRO";
             id = this._createJob(dst, name, cmd, pos);
 
         }
@@ -496,7 +494,7 @@ define(['logManager',
 
         fileId = this._client.createChild({ 'parentId': dstId, 'baseId': baseId });
 
-        this._client.setAttributes(fileId, nodePropertyNames.Attributes.name, name);//Set name
+        this._client.setAttributes(fileId, nodePropertyNames.Attributes.name, name || "File_1");//Set name
         this._client.setRegistry(fileId, 'position', pos);//Set position
 
         return fileId;
@@ -552,52 +550,6 @@ define(['logManager',
         return true;
     };
 
-    PegasusInterpreter.prototype._setNodeAttributes = function(newNodeId, nodeId){
-        var node = this._client.getNode(nodeId),
-            names = node.getAttributeNames(),
-            i = names.length,
-            newNode = this._client.getNode(newNodeId);
-
-        while(i--){//Copy attributes
-            var attrName = names[i],
-                attr = node.getAttribute(attrName);
-            var newAttr = newNode.getEditableAttribute(attrName);
-
-            if( typeof attr === "Object" ){
-                newAttr = attr;
-            }else{
-                this._client.setAttributes(newNodeId, attrName, attr)
-            }
-        }
-
-        //Copy Pointers
-        names = node.getPointerNames();
-        i = names.length;
-
-        while(i--){
-            var ptrName = names[i],
-                ptr = node.getPointer(ptrName).to;
-            //Need to set the pointer to the copy of the new object...
-
-            if(ptrName !== CONSTANTS.POINTER_BASE){
-                this._client.makePointer(newNodeId, ptrName, (this.original2copy[ptr] || ptr));
-            }
-
-        }
-
-        //Copy Registry Values
-        names = node.getRegistryNames();
-        i = names.length;
-
-        while(i--){
-            var regName = names[i],
-                val = node.getRegistry(regName);
-
-            this._client.setRegistry(newNodeId, regName, val);
-        }
-
-    };
-
     PegasusInterpreter.prototype._correctConnections = function(parentId){
         var nodeIds = this._client.getNode(parentId).getChildrenIds();
 
@@ -624,4 +576,4 @@ define(['logManager',
     };
 
     return PegasusInterpreter;
-        });
+});
