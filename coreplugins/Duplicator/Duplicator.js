@@ -1,4 +1,4 @@
-define(['plugin/PluginBase', 'plugin/PluginConfig'], function (PluginBase, PluginConfig) {
+define(['plugin/PluginBase', 'plugin/PluginConfig', 'plugin/Duplicator/Duplicator/second'], function (PluginBase, PluginConfig,second) {
     "use strict";
 
     var RootChildduplicator = function () {};
@@ -10,6 +10,7 @@ define(['plugin/PluginBase', 'plugin/PluginConfig'], function (PluginBase, Plugi
     };
 
     RootChildduplicator.prototype.main = function (config, callback) {
+        console.log(second.data);
         var result = {commitHash:config.commitHash};
         if(config.rootNode && config.core){
             config.core.loadChildren(config.rootNode,function(err,children){

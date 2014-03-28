@@ -57,6 +57,8 @@ define(['logManager',
 
             __storageOptions.basedir =  CONFIG.basedir;
 
+            __storageOptions.intoutdir = CONFIG.intoutdir;
+
             __storage = Storage(__storageOptions);
             //end of storage creation
             __storage.open();
@@ -168,6 +170,23 @@ define(['logManager',
                 }
             } catch(e){
                 return false;
+            }
+        }
+
+        function getPluginBasePathByName(pluginName){
+            if(CONFIG.pluginBasePaths && CONFIG.pluginBasePaths.length){
+                for(var i=0;i<CONFIG.pluginBasePaths.length;i++){
+                    var additional = FS.readdirSync(CONFIG.pluginBasePaths[i]);
+                    for(var j=0;j<additional.length;j++){
+                        if(additional[j] === pluginName){
+                            if(isGoodExtraAsset(additional[j],Path.join(CONFIG.pluginBasePaths[i],additional[j]))){
+                                return CONFIG.pluginBasePaths[i];
+                            }
+                        }
+                    }
+                }
+            } else {
+                return null;
             }
         }
         //here starts the main part
@@ -300,33 +319,50 @@ define(['logManager',
         });
 
         __logger.info("creating plug-in specific routing rules");
-        __app.get(/^\/interpreters\/.*/,ensureAuthenticated,function(req,res){
-            var tryNext = function(index){
-                if(index<CONFIG.interpreterpaths.length){
-                    console.log('interperter...',Path.join(CONFIG.interpreterpaths[index],req.url.substring(14)));
-                    res.sendfile(Path.join(CONFIG.interpreterpaths[index],req.url.substring(14))+'.js',function(err){
-                        tryNext(index+1);
+        __app.get(/^\/plugin\/.*/,ensureAuthenticated,function(req,res){
+            //first we try to give back the common plugin/modules
+            res.sendfile(Path.join(CONFIG.basedir,req.path),function(err){
+                //this means that it is probably plugin/pluginName or plugin/pluginName/relativePath format so we try to look for those in our config
+                //first we check if we have the plugin registered in our config
+                var urlArray = req.url.split('/'),
+                    pluginName = urlArray[2] || null,
+                    basePath = getPluginBasePathByName(pluginName),
+                    relPath = "";
+                urlArray.shift();
+                urlArray.shift();
+                urlArray.shift();
+                relPath = urlArray.join('/');
+                if(relPath.indexOf('.js') === -1){
+                    relPath+='.js';
+                }
+
+                if(basePath && relPath){
+                    res.sendfile(Path.join(basePath,relPath),function(err){
+                        res.send(404);
                     });
                 } else {
+                    // TODO: log basePath and relPath?
                     res.send(404);
                 }
-            };
-
-            if(CONFIG.interpreterpaths && CONFIG.interpreterpaths.length){
-                tryNext(0);
-            } else {
-                res.send(404);
-            }
+            });
         });
 
         __logger.info("creating basic static content related routing rules");
         //static contents
         //javascripts - core and transportation related files
-        __app.get(/^\/(common|util|storage|core|config|auth|bin|coreclient)\/.*\.js$/,ensureAuthenticated,function(req,res){
+        __app.get(/^\/(common|util|storage|core|config|auth|bin|coreclient|plugin)\/.*\.js$/,ensureAuthenticated,function(req,res){
             res.sendfile(Path.join(CONFIG.basedir,req.path),function(err){
                 res.send(404);
             });
         });
+
+        //TODO remove this part as this is only temporary!!!
+        __app.get('/docs/*',function(req,res){
+            res.sendfile(Path.join(CONFIG.basedir,req.path),function(err){
+                res.send(404);
+            });
+        });
+
         //client contents - js/html/css
         //css classified as not secure content
         __app.get(/^\/.*\.(css|ico)$/,function(req,res){
@@ -470,14 +506,14 @@ define(['logManager',
             res.status(200);
             res.end("define([],function(){ return "+JSON.stringify(names)+";});");
         });
-        __app.get('/listAllInterpreters',ensureAuthenticated,function(req,res){
+        __app.get('/listAllPlugins',ensureAuthenticated,function(req,res){
             var names = []; //we add only the "*.js" files from the directories
-            if(CONFIG.interpreterpaths && CONFIG.interpreterpaths.length){
-                for(var i=0;i<CONFIG.interpreterpaths.length;i++){
-                    var additional = FS.readdirSync(CONFIG.interpreterpaths[i]);
+            if(CONFIG.pluginBasePaths && CONFIG.pluginBasePaths.length){
+                for(var i=0;i<CONFIG.pluginBasePaths.length;i++){
+                    var additional = FS.readdirSync(CONFIG.pluginBasePaths[i]);
                     for(var j=0;j<additional.length;j++){
                         if(names.indexOf(additional[j]) === -1){
-                            if(isGoodExtraAsset(additional[j],Path.join(CONFIG.interpreterpaths[i],additional[j]))){
+                            if(isGoodExtraAsset(additional[j],Path.join(CONFIG.pluginBasePaths[i],additional[j]))){
                                 names.push(additional[j]);
                             }
                         }
@@ -511,6 +547,8 @@ define(['logManager',
         }
 
         __logger.info("standalone server initialization completed");
+
+
 
 
         return {
