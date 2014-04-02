@@ -25,6 +25,7 @@ define(['underscore',
 		'File_Conn': '/-3/-28',
 		'Fork': '/-3/-2',
 		'Fork_Conn': '/-3/-5',
+		'InPreviewAspect': '/-3/999732465',
 		'Job': '/-3/-69',
 		'Job_Conn': '/-3/-27',
 		'Macro': '/-3/-70',
@@ -32,9 +33,9 @@ define(['underscore',
 		'Merge_operation': '/-3/-3',
 		'MetaLanguageContainer': '/-3/-71',
 		'Multiplexer': '/-3/-13',
-		'Preview_Conn': '/-3/1520956416',
-		'Preview_File': '/-3/755800864',
-		'Preview_Job': '/-3/542589132',
+		'PreviewConn': '/-3/1062006775',
+		'PreviewFile': '/-3/995428422',
+		'PreviewJob': '/-3/1041924404',
 		'Split_Operation': '/-3/-4',
 		'file2fileset': '/-3/-12',
 		'fileset2file': '/-3/-25'
@@ -52,6 +53,7 @@ define(['underscore',
 	var _isFile_Conn = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.File_Conn); };
 	var _isFork = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Fork); };
 	var _isFork_Conn = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Fork_Conn); };
+	var _isInPreviewAspect = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.InPreviewAspect); };
 	var _isJob = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Job); };
 	var _isJob_Conn = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Job_Conn); };
 	var _isMacro = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Macro); };
@@ -59,9 +61,9 @@ define(['underscore',
 	var _isMerge_operation = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Merge_operation); };
 	var _isMetaLanguageContainer = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.MetaLanguageContainer); };
 	var _isMultiplexer = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Multiplexer); };
-	var _isPreview_Conn = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Preview_Conn); };
-	var _isPreview_File = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Preview_File); };
-	var _isPreview_Job = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Preview_Job); };
+	var _isPreviewConn = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.PreviewConn); };
+	var _isPreviewFile = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.PreviewFile); };
+	var _isPreviewJob = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.PreviewJob); };
 	var _isSplit_Operation = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Split_Operation); };
 	var _isfile2fileset = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.file2fileset); };
 	var _isfileset2file = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.fileset2file); };
@@ -117,6 +119,7 @@ define(['underscore',
 			isFile_Conn: _isFile_Conn,
 			isFork: _isFork,
 			isFork_Conn: _isFork_Conn,
+			isInPreviewAspect: _isInPreviewAspect,
 			isJob: _isJob,
 			isJob_Conn: _isJob_Conn,
 			isMacro: _isMacro,
@@ -124,9 +127,9 @@ define(['underscore',
 			isMerge_operation: _isMerge_operation,
 			isMetaLanguageContainer: _isMetaLanguageContainer,
 			isMultiplexer: _isMultiplexer,
-			isPreview_Conn: _isPreview_Conn,
-			isPreview_File: _isPreview_File,
-			isPreview_Job: _isPreview_Job,
+			isPreviewConn: _isPreviewConn,
+			isPreviewFile: _isPreviewFile,
+			isPreviewJob: _isPreviewJob,
 			isSplit_Operation: _isSplit_Operation,
 			isfile2fileset: _isfile2fileset,
 			isfileset2file: _isfileset2file
