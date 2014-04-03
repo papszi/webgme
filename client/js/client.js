@@ -1960,6 +1960,10 @@ define([
                     return _core.getAttribute(_nodes[_id].node, 'name') + ' (' + _id +')';
                 };
 
+                var getCollectionPaths = function(name){
+                    return _core.getCollectionPaths(_nodes[_id].node,name);
+                };
+
                 if(_nodes[_id]){
                     return {
                         getParentId             : getParentId,
@@ -2009,7 +2013,9 @@ define([
                         getConstraint      : getConstraint,
 
                         printData : printData,
-                        toString: toString
+                        toString: toString,
+
+                        getCollectionPaths: getCollectionPaths
 
                     }
                 }
@@ -2165,10 +2171,7 @@ define([
             }
 
             function runServerPlugin(name,context,callback){
-                _database.simpleRequest({command:'executePlugin',name:name,context:context},function(err,result){
-                    result.error = result.error || err;
-                    callback(result);
-                });
+                _database.simpleRequest({command:'executePlugin',name:name,context:context},callback);
             }
 
             function getAvailableDecoratorNames(){

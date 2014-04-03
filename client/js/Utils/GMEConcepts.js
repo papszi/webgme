@@ -757,6 +757,44 @@ define(['jquery',
         return result;
     };
 
+    var _getCrosscuts = function (objID) {
+        var obj = _client.getNode(objID),
+            crosscuts = [];
+
+        if (obj) {
+            crosscuts = obj.getRegistry(REGISTRY_KEYS.CROSSCUTS) || [];
+        }
+
+        return crosscuts;
+    };
+
+    var _getSets = function (objID) {
+        var obj = _client.getNode(objID),
+            setNames = obj.getSetNames() || [],
+            aspects = _client.getMetaAspectNames(objID) || [],
+            crossCuts = _getCrosscuts(objID),
+            crossCutNames = [];
+
+        //filter out ManualAspects from the list
+        _.each(crossCuts, function (element/*, index, list*/) {
+            crossCutNames.push(element.SetID);
+        });
+
+        setNames = _.difference(setNames, crossCutNames, aspects);
+
+        return setNames;
+    };
+
+    var _getFCOId = function () {
+        var FCO_ID,
+            projectRootNode = _client.getNode(CONSTANTS.PROJECT_ROOT_ID);
+
+        if (projectRootNode) {
+            FCO_ID = projectRootNode.getRegistry(REGISTRY_KEYS.PROJECT_REGISTRY)[CONSTANTS.PROJECT_FCO_ID];
+        }
+
+        return FCO_ID;
+    };
 
     //return utility functions
     return {
@@ -782,6 +820,9 @@ define(['jquery',
         isValidChildrenTypeInCrossCut: _isValidChildrenTypeInCrossCut,
         getValidPointerTargetTypesFromSource: _getValidPointerTargetTypesFromSource,
         getValidPointerTypesFromSourceToTarget: _getValidPointerTypesFromSourceToTarget,
-        getValidSetTypesFromContainerToMember: _getValidSetTypesFromContainerToMember
+        getValidSetTypesFromContainerToMember: _getValidSetTypesFromContainerToMember,
+        getCrosscuts: _getCrosscuts,
+        getSets: _getSets,
+        getFCOId: _getFCOId,
     }
 });

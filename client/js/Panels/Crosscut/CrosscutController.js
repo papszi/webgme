@@ -59,6 +59,12 @@ define(['logManager',
         return nodeId;
     };
 
+    CrosscutController.prototype._canAddTab = function () {
+        var memberListContainerID = this._memberListContainerID;
+
+        return (memberListContainerID || memberListContainerID === CONSTANTS.PROJECT_ROOT_ID);
+    };
+
     CrosscutController.prototype._updateSelectedMemberListMembersTerritoryPatterns = function () {
         var currentlyDisplayedMembers = (this._selectedMemberListMembers || []).slice(0),
             actualMembers = (this._memberListMembers[this._selectedMemberListID] || []).slice(0),
@@ -133,6 +139,7 @@ define(['logManager',
                     if (events[len].desc.isConnection === true) {
                         objDecorator = CONNECTION_DECORATOR;
                         events[len].desc.isConnection = false;
+                        events[len].desc.decoratorParams = {'displayName': false};
                     } else {
                         objDecorator = obj.getRegistry(REGISTRY_KEYS.DECORATOR);
                     }
@@ -158,7 +165,8 @@ define(['logManager',
 
     CrosscutController.prototype.getOrderedMemberListInfo = function (memberListContainerObject) {
         var result = [],
-            crosscutsRegistry = memberListContainerObject.getRegistry(REGISTRY_KEYS.CROSSCUTS) || [],
+            memberListContainerID = this._memberListContainerID,
+            crosscutsRegistry = GMEConcepts.getCrosscuts(memberListContainerID),
             len = crosscutsRegistry.length;
 
         while (len--) {
@@ -580,7 +588,8 @@ define(['logManager',
     /****************************************************************************/
     CrosscutController.prototype._createConnection = function (gmeSrcId, gmeDstId, connType, connTexts) {
         var connDesc,
-            connComponent;
+            connComponent,
+            visualType;
         //need to check if the src and dst objects are displayed or not
         //if YES, create connection
         //if NO, store information in a waiting queue
@@ -601,7 +610,12 @@ define(['logManager',
                 };
 
                 //set visual properties
-                _.extend(connDesc, MetaRelations.getLineVisualDescriptor(connType));
+                visualType = connType;
+                if (connTexts &&
+                    connTexts.name === CONSTANTS.POINTER_BASE) {
+                    visualType = MetaRelations.META_RELATIONS.INHERITANCE;
+                }
+                _.extend(connDesc, MetaRelations.getLineVisualDescriptor(visualType));
 
                 //fill out texts
                 if (connTexts) {
@@ -644,7 +658,7 @@ define(['logManager',
         } else {
             //#3 - both gmeSrcId and gmeDstId is missing from the screen
             //NOTE: this should never happen!!!
-            this.logger.error('_saveConnectionToWaitingList both gmeSrcId and gmeDstId is undefined...');
+            //this.logger.error('_saveConnectionToWaitingList both gmeSrcId and gmeDstId is undefined...');
         }
     };
 
@@ -748,7 +762,7 @@ define(['logManager',
             gmeID,
             gmeObj,
             componentId,
-            NON_DELETABLE_POINTERS = [CONSTANTS.POINTER_SOURCE, CONSTANTS.POINTER_TARGET],
+            NON_DELETABLE_POINTERS = [CONSTANTS.POINTER_SOURCE, CONSTANTS.POINTER_TARGET, CONSTANTS.POINTER_BASE],
             lineDesc,
             canDeletePointer,
             logger = this.logger;
@@ -792,6 +806,8 @@ define(['logManager',
                         logger.debug('deleting pointer from: ' + lineDesc.GMESrcId + ', type: ' + lineDesc.name);
                         //it's a pointer that's allowed to be deleted
                         _client.delPointer(lineDesc.GMESrcId, lineDesc.name);
+                    } else {
+                        logger.warning('can not delete pointer from: ' + lineDesc.GMESrcId + ', type: ' + lineDesc.name);
                     }
                 }
             }
@@ -1054,6 +1070,20 @@ define(['logManager',
             }
         }
     };
+
+    CrosscutController.prototype._getDragItems = function (selectedElements) {
+        var res = [],
+            i = selectedElements.length;
+
+        while(i--) {
+            if (this._ComponentID2GMEID[selectedElements[i]]) {
+                res.push(this._ComponentID2GMEID[selectedElements[i]]);
+            }
+        }
+
+        return res;
+    };
+
 
     return CrosscutController;
 });

@@ -1,13 +1,25 @@
-var requirejs = require("requirejs");
+var requirejs = require("requirejs"),
+    BASEPATH = __dirname + "/..";
 requirejs.config({
     nodeRequire: require,
-    baseUrl: __dirname + "/..",
+    baseUrl: BASEPATH,
     paths: {
         "logManager": "common/LogManager"
     }
 });
-requirejs(['worker/constants','core/core','storage/serveruserstorage','util/guid','coreclient/dumpmore','logManager','fs','path','plugin/PluginFSServer'],
-function(CONSTANT,Core,Storage,GUID,DUMP,logManager,FS,PATH,PluginFSServer){
+requirejs(['worker/constants',
+        'core/core',
+        'storage/serveruserstorage',
+        'util/guid',
+        'coreclient/dumpmore',
+        'logManager',
+        'fs',
+        'path',
+        'plugin/PluginFSServer',
+        'plugin/PluginManagerBase',
+        'plugin/PluginResult',
+        'storage/clientstorage'],
+function(CONSTANT,Core,Storage,GUID,DUMP,logManager,FS,PATH,PluginFSServer,PluginManagerBase,PluginResult,ConnectedStorage){
     var storage = null,
         core = null,
         result = null,
@@ -16,8 +28,9 @@ function(CONSTANT,Core,Storage,GUID,DUMP,logManager,FS,PATH,PluginFSServer){
         resultId = null,
         error = null,
         initialized = false,
-        interpreterpaths = null,
-        interpreteroutputdirectory = null;
+        pluginBasePaths = null,
+        interpreteroutputdirectory = null,
+        serverPort = 80;
 
     var initResult = function(){
         core = null;
@@ -30,8 +43,16 @@ function(CONSTANT,Core,Storage,GUID,DUMP,logManager,FS,PATH,PluginFSServer){
     var initialize = function(parameters){
         if(initialized !== true){
             initialized = true;
-            interpreterpaths = parameters.interpreterpaths;
+            pluginBasePaths = parameters.pluginBasePaths;
+            serverPort = parameters.serverPort || 80;
             interpreteroutputdirectory = parameters.interpreteroutputdirectory || "";
+            if(interpreteroutputdirectory){
+                try{
+                    FS.mkdirSync(PATH.resolve(interpreteroutputdirectory));
+                } catch(e){
+                    console.log('output directory cannot be created');
+                }
+            }
             storage = new Storage({'host':parameters.ip,'port':parameters.port,'database':parameters.db,'log':logManager.create('SERVER-WORKER-'+process.pid)});
             storage.openDatabase(function(err){
                 if(err){
@@ -90,8 +111,30 @@ function(CONSTANT,Core,Storage,GUID,DUMP,logManager,FS,PATH,PluginFSServer){
     };
 
     //TODO the getContext should be refactored!!!
+    var getProject = function(projectName,callback){
+        var pluginStorage = new ConnectedStorage({type:'node',host:'127.0.0.1',port:serverPort,log:logManager.create('SERVER-WORKER-PLUGIN-'+process.pid)});
+        pluginStorage.openDatabase(function(err){
+            if(!err){
+                if(projectName) {
+                    pluginStorage.openProject(projectName, function (err, project) {
+                        if (!err) {
+                            callback(null, project);
+                        } else {
+                            callback(err);
+                        }
+                    });
+                } else {
+                    callback(new Error('invalid project name'));
+                }
+            } else {
+                callback(new Error('cannot open database'));
+            }
+        });
+    };
     var getContext = function(context,callback){
-        context.storage = storage;
+        //TODO get the configured parameters for webHost and webPort
+        context.storage = new ConnectedStorage({type:'node',host:'127.0.0.1',port:serverPort,log:logManager.create('SERVER-WORKER-PLUGIN-'+process.pid)});
+        //context.storage = storage;
         context.FS = new PluginFSServer({outputpath:interpreteroutputdirectory});
         if(context.projectName){
             storage.openProject(context.projectName,function(err,project){
@@ -128,50 +171,87 @@ function(CONSTANT,Core,Storage,GUID,DUMP,logManager,FS,PATH,PluginFSServer){
             callback('no project name',{});
         }
     };
-    var getInterpreter = function(name){
-        var interpreterClass = null;
-        if(interpreterpaths){
-            var tryNext = function(index){
-                var path = null;
-                if(index<interpreterpaths.length){
-                    try{
-                        path = PATH.join(interpreterpaths[index],name+'/'+name);
-                        FS.readFileSync(path+'.js');
-                    } catch(e) {
-                        tryNext(index+1);
+    var isGoodExtraAsset = function(name,path){
+        try{
+            var file = FS.readFileSync(path+'/'+name+'.js','utf-8');
+            if(file === undefined || file === null){
+                return false;
+            } else {
+                return true;
+            }
+        } catch(e){
+            return false;
+        }
+    };
+    var getPluginBasePathByName = function(pluginName){
+        if(pluginBasePaths && pluginBasePaths.length){
+            for(var i=0;i<pluginBasePaths.length;i++){
+                var additional = FS.readdirSync(pluginBasePaths[i]);
+                for(var j=0;j<additional.length;j++){
+                    if(additional[j] === pluginName){
+                        if(isGoodExtraAsset(additional[j],PATH.join(pluginBasePaths[i],additional[j]))){
+                            return pluginBasePaths[i];
+                        }
                     }
-                } else {
-                    return null;
                 }
-            };
-
-            var path = tryNext(0);
-            if(path){
-               try {
-                   interpreterClass = requirejs(path);
-               } catch(e) {
-                   return null;
-               }
             }
-
         } else {
-            //we still can try the requirejs
-            try {
-                interpreterClass = requirejs('interpreters/'+name+'/'+name);
-            } catch(e) {
-                return null;
-            }
+            return null;
+        }
+    };
+
+    var getInterpreter = function(name){
+        var interpreterClass = null,
+            basePath = getPluginBasePathByName(name);
+
+        if(basePath){
+            var path = {};
+            path['plugin/'+name] = PATH.relative(BASEPATH,basePath);
+            requirejs.config({
+                paths:path
+            });
+            interpreterClass = requirejs('plugin/'+name+'/'+name+'/'+name);
+        } else {
+            return null;
         }
 
-        return new interpreterClass;
+
+        return interpreterClass;
     };
-    var runInterpreter = function(name,context,callback){
+    var runInterpreter = function(name,sessionId,context,callback){
         var interpreter = getInterpreter(name);
-        getContext(context,function(err,completeContext){
-            interpreter.run(context,function(result){
-                callback(null,result);
+        if(interpreter){
+            getProject(context.managerConfig.project,function(err,project){
+                if(!err){
+                    var plugins = {};
+                    plugins[name] = interpreter;
+                    var manager = new PluginManagerBase(project,Core,plugins);
+                    context.managerConfig.FS = new PluginFSServer({outputpath:interpreteroutputdirectory});
+
+                    manager.initialize(null, function (pluginConfigs, configSaveCallback) {
+                        if (configSaveCallback) {
+                            configSaveCallback(context.pluginConfigs);
+                        }
+
+                        manager.executePlugin(name,context.managerConfig,function(err,result){
+                            if(!err && result){
+                                callback(null,result.serialize());
+                            } else {
+                                var newErrorPluginResult = new PluginResult();
+                                callback(err,newErrorPluginResult.serialize());
+                            }
+                        });
+
+                    });
+                } else {
+                    var newErrorPluginResult = new PluginResult();
+                    callback(new Error('unable to get project'),newErrorPluginResult.serialize());
+                }
             });
-        });
+        } else {
+            var newErrorPluginResult = new PluginResult();
+            callback(new Error('unable to load plugin'),newErrorPluginResult.serialize());
+        }
     };
     //main message processing loop
     process.on('message',function(parameters){
@@ -226,7 +306,7 @@ function(CONSTANT,Core,Storage,GUID,DUMP,logManager,FS,PATH,PluginFSServer){
                 break;
             case CONSTANT.workerCommands.executePlugin:
                 if( typeof parameters.name === 'string' && typeof parameters.context === 'object'){
-                    runInterpreter(parameters.name,parameters.context,function(err,result){
+                    runInterpreter(parameters.name,parameters.webGMESessionId,parameters.context,function(err,result){
                         process.send({pid:process.pid,type:CONSTANT.msgTypes.result,error:err,result:result});
                     });
                 } else {

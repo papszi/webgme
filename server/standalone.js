@@ -58,6 +58,9 @@ define(['logManager',
             __storageOptions.basedir =  CONFIG.basedir;
 
             __storageOptions.intoutdir = CONFIG.intoutdir;
+            __storageOptions.pluginBasePaths = CONFIG.pluginBasePaths;
+
+            __storageOptions.webServerPort = CONFIG.port;
 
             __storage = Storage(__storageOptions);
             //end of storage creation
@@ -93,7 +96,21 @@ define(['logManager',
                 var index = req.url.indexOf('?');
                 req.session.originalQuery = index === -1 ? "" : req.url.substring(index);
             }
-            next();
+            if(typeof CONFIG.defaultUser === 'string' && req.session.authenticated !== true){
+                //TODO: this has do be done in some other way
+                if(req.param('user') === CONFIG.defaultUser){
+                    req.session.udmId = CONFIG.defaultUser;
+                    req.session.authenticated = true;
+                    req.session.userType = 'GME';
+                    //probably this is the last step in authentication so we should set cookies as well
+                    res.cookie('webgme',req.session.udmId);
+                    next();
+                } else {
+                    next();
+                }
+            } else {
+                next();
+            }
         }
 
 
@@ -296,8 +313,9 @@ define(['logManager',
         });
 
         __logger.info("creating decorator specific routing rules");
-        __app.get('/bin/getconfig/',ensureAuthenticated,function(req,res){
-            res.json(CONFIG);
+        __app.get('/bin/getconfig.js',ensureAuthenticated,function(req,res){
+            res.status(200);
+            res.end("define([],function(){ return "+JSON.stringify(CONFIG)+";});");
         });
         __logger.info("creating decorator specific routing rules");
         __app.get(/^\/decorators\/.*/,ensureAuthenticated,function(req,res){
@@ -322,26 +340,53 @@ define(['logManager',
         __app.get(/^\/plugin\/.*/,ensureAuthenticated,function(req,res){
             //first we try to give back the common plugin/modules
             res.sendfile(Path.join(CONFIG.basedir,req.path),function(err){
-                //this means that it is probably plugin/pluginName or plugin/pluginName/relativePath format so we try to look for those in our config
-                //first we check if we have the plugin registered in our config
-                var urlArray = req.url.split('/'),
-                    pluginName = urlArray[2] || null,
-                    basePath = getPluginBasePathByName(pluginName),
-                    relPath = "";
-                urlArray.shift();
-                urlArray.shift();
-                urlArray.shift();
-                relPath = urlArray.join('/');
-                if(relPath.indexOf('.js') === -1){
-                    relPath+='.js';
-                }
+                if(err){
+                    //this means that it is probably plugin/pluginName or plugin/pluginName/relativePath format so we try to look for those in our config
+                    //first we check if we have the plugin registered in our config
+                    var urlArray = req.url.split('/'),
+                        pluginName = urlArray[2] || null,
+                        basePath = getPluginBasePathByName(pluginName),
+                        relPath = "";
+                    urlArray.shift();
+                    urlArray.shift();
+                    urlArray.shift();
+                    relPath = urlArray.join('/');
+                    if(relPath.indexOf('.js') === -1){
+                        relPath+='.js';
+                    }
 
-                if(basePath && relPath){
-                    res.sendfile(Path.join(basePath,relPath),function(err){
+                    if(typeof basePath === 'string' && typeof relPath === 'string'){
+                        res.sendfile(Path.join(basePath,relPath),function(err){
+                            if(err){
+                                res.send(404);
+                            }
+                        });
+                    } else {
                         res.send(404);
-                    });
-                } else {
-                    // TODO: log basePath and relPath?
+                    }
+                }
+            });
+        });
+        __app.get(/^\/pluginoutput\/.*/,ensureAuthenticated,function(req,res){
+            var filepath = req.path.replace('/pluginoutput',CONFIG.intoutdir);
+            res.sendfile(filepath,function(err){
+                res.send(404);
+            });
+        });
+
+
+        __logger.info("creating external library specific routing rules");
+        __app.get(/^\/extlib\/.*/,ensureAuthenticated,function(req,res){
+            //first we try to give back the common extlib/modules
+
+            var urlArray = req.path.split('/');
+            urlArray[1] = '.';
+            urlArray.shift();
+
+            var relPath = urlArray.join('/');
+
+            res.sendfile(relPath,function(err){
+                if(err){
                     res.send(404);
                 }
             });
@@ -350,7 +395,7 @@ define(['logManager',
         __logger.info("creating basic static content related routing rules");
         //static contents
         //javascripts - core and transportation related files
-        __app.get(/^\/(common|util|storage|core|config|auth|bin|coreclient|plugin)\/.*\.js$/,ensureAuthenticated,function(req,res){
+        __app.get(/^\/(common|util|storage|core|config|auth|bin|coreclient)\/.*\.js$/,ensureAuthenticated,function(req,res){
             res.sendfile(Path.join(CONFIG.basedir,req.path),function(err){
                 res.send(404);
             });

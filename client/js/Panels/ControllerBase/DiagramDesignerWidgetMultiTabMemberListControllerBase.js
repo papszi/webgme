@@ -531,7 +531,7 @@ define(['logManager',
 
                     _client.setMemberRegistry(memberListContainerID, i, memberListToAddTo, MEMBER_POSITION_REGISTRY_KEY, {'x': posX, 'y': posY} );
 
-                    componentID = this._GMEID2ComponentID[i];
+                    componentID = this._GMEID2ComponentID[i][0];
 
                     selectedIDs.push(componentID);
                     this._widget.updateDesignerItem(componentID, { "position": {'x': posX, 'y': posY}});
@@ -1033,6 +1033,11 @@ define(['logManager',
                     objDesc.position.y = this._memberListMemberCoordinates[this._selectedMemberListID][gmeID].y;
                 }
 
+                objDesc.decoratorParams = {};
+                if (desc.decoratorParams) {
+                    _.extend(objDesc.decoratorParams, desc.decoratorParams);
+                }
+
                 //registry preferences here are:
                 //#1: local set membership registry
                 objDesc.preferencesHelper = PreferencesHelper.getPreferences([{'containerID': this._memberListContainerID,
@@ -1472,7 +1477,7 @@ define(['logManager',
             i,
             newSetID;
 
-        if (memberListContainerID &&
+        if (this._canAddTab() &&
             memberListSetsRegistryKey &&
             memberListSetsRegistryKey !== '') {
             memberListContainer = this._client.getNode(memberListContainerID);
@@ -1520,6 +1525,12 @@ define(['logManager',
             //finish transaction
             this._client.completeTransaction();
         }
+    };
+
+    DiagramDesignerWidgetMultiTabMemberListControllerBase.prototype._canAddTab = function () {
+        var memberListContainerID = this._memberListContainerID;
+
+        return (memberListContainerID && memberListContainerID !== CONSTANTS.PROJECT_ROOT_ID);
     };
 
     DiagramDesignerWidgetMultiTabMemberListControllerBase.prototype.getNewSetNamePrefixDesc = function () {
@@ -1659,6 +1670,11 @@ define(['logManager',
             this._memberListMemberCoordinates[this._selectedMemberListID][gmeID]) {
             objDesc.position.x = this._memberListMemberCoordinates[this._selectedMemberListID][gmeID].x;
             objDesc.position.y = this._memberListMemberCoordinates[this._selectedMemberListID][gmeID].y;
+        }
+
+        objDesc.decoratorParams = {};
+        if (desc.decoratorParams) {
+            _.extend(objDesc.decoratorParams, desc.decoratorParams);
         }
 
         //registry preferences here are:

@@ -45,7 +45,9 @@ require.config({
         "loaderProgressBar": "js/Loader/LoaderProgressBar",
 
         "codemirror": 'lib/codemirror/codemirror.amd',
-        "jquery-csszoom": 'lib/jquery/jquery.csszoom'
+        "jquery-csszoom": 'lib/jquery/jquery.csszoom',
+
+        "jszip": 'lib/jszip/jszip'
     },
     shim: {
         'jquery-ui': ['jquery'],
@@ -93,6 +95,22 @@ require(
             } else if (d === 'rel') {
                 DEBUG = false;
             }
+
+            if (CONFIG.paths) {
+                // attach external libraries to extlib/*
+                var keys = Object.keys(CONFIG.paths);
+                for (var i = 0; i < keys.length; i += 1) {
+                    // assume this is a relative path from the current working directory
+                    CONFIG.paths[keys[i]] = 'extlib/' + CONFIG.paths[keys[i]];
+                }
+
+                // update client config to route the external lib requests
+                require.config({
+                    paths: CONFIG.paths
+                });
+
+            }
+
 
             webGME.start();
         });
