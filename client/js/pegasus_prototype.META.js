@@ -29,6 +29,7 @@ define(['underscore',
 		'Job': '/-3/-69',
 		'Job_Conn': '/-3/-27',
 		'Macro': '/-3/-70',
+		'Merge': '/-3/965420509',
 		'Merge_Conn': '/-3/-29',
 		'Merge_operation': '/-3/-3',
 		'MetaLanguageContainer': '/-3/-71',
@@ -57,6 +58,7 @@ define(['underscore',
 	var _isJob = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Job); };
 	var _isJob_Conn = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Job_Conn); };
 	var _isMacro = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Macro); };
+	var _isMerge = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Merge); };
 	var _isMerge_Conn = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Merge_Conn); };
 	var _isMerge_operation = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.Merge_operation); };
 	var _isMetaLanguageContainer = function (objID) { return METAAspectHelper.isMETAType(objID, _metaTypes.MetaLanguageContainer); };
@@ -123,6 +125,7 @@ define(['underscore',
 			isJob: _isJob,
 			isJob_Conn: _isJob_Conn,
 			isMacro: _isMacro,
+			isMerge: _isMerge,
 			isMerge_Conn: _isMerge_Conn,
 			isMerge_operation: _isMerge_operation,
 			isMetaLanguageContainer: _isMetaLanguageContainer,
