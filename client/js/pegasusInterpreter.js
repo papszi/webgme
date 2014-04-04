@@ -60,40 +60,6 @@ define(['logManager',
 
         this._createCopyLists(childrenIds);
 
-/*
-        var i = this.params.length;
-        while(i--){
-            this.original2copy[this.params[i].parentId] = this._client.copyMoreNodes(this.params[i]);
-        }
-
-        //Correct any incorrect connections - This assumes that all connections should be within the 
-        //project (dstId)
-        this._correctConnections(outputId);
-
-        this._client.completeTransaction();
-        this._client.startTransaction();
-
-
-        //Make any extra copies that were requested
-        this.params = [{}];
-        while(this.extraCopying.length){
-            var job = this.extraCopying.splice(0, 1)[0];
-
-            if(!this._isContainedBy(job.id, outputId))
-                job.id = this.original2copy[job.dstId][job.id];
-
-                this._addToParams(job.id, job.dstId, job.attr);
-        }
-
-        i = this.params.length;
-        while(i--){
-            this.original2copy[this.params[i].parentId] = this._client.copyMoreNodes(this.params[i]);
-        }
-        //Correct any incorrect connections - This assumes that all connections should be within the 
-        //project (dstId)
-        this._correctConnections(outputId);
-*/
-
         this._client.completeTransaction();
 
     };
@@ -122,13 +88,16 @@ define(['logManager',
         forks = this._createSkeletonWorkflowAndGetForks();
         if(forks.length)
             this._copyForkGroups(forks);
+
+        this._client.startTransaction();
         this._connectPreviewObjects();
+        this._client.completeTransaction();
     };
 
     PegasusInterpreter.prototype._createGraph = function(nIds){
         // I will create a dictionary of objects with pointers to the base/children
         // in the graph
-        this.graph = {};
+        this.graph = {'start': []};
         var n,
             src,
             dst,
@@ -172,7 +141,7 @@ define(['logManager',
             if(this.graph.hasOwnProperty(ids)){
                 if(this.pegasusTypeCheck.isFileSet(ids) || this.pegasusTypeCheck.isFile(ids)){
                     if(this.graph[ids].base.length === 0)
-                        this.graph['start'] = ids;
+                        this.graph['start'].push(ids);
                 }
             }
         }
@@ -181,18 +150,23 @@ define(['logManager',
     PegasusInterpreter.prototype._createSkeletonWorkflowAndGetForks = function(){
         // Traverse/Update the graph and create the forks object
         var forks = [],
-            nodeIds = [this.graph.start],
-            nodeId,
+            nodeIds = this.graph.start,
             preview,
             currFork,//Preview node
             fork,
+            forkId,
+            mergeId,
+            fsId,
             ids,
             skip,
+            del,
             j,
             i;
 
         while(nodeIds.length){//BFS
             skip = false;
+            del = false;
+            preview = null;
             //If the next node is a fork
             //Create a fork object and add to "forks"
             if( this.pegasusTypeCheck.isFork(this.graph[nodeIds[0]].child[0]) ){
@@ -205,15 +179,38 @@ define(['logManager',
                 forks.push(fork);
                 currFork = fork;
 
-                skip = true;
+                //Remove Fork object from graph
+                forkId = this.graph[nodeIds[0]].child[0];
+                this.graph[nodeIds[0]].child = this.graph[forkId].child;
+
+                i = this.graph[nodeIds[0]].child.length;
+                while(i--){
+                    j = this.graph[this.graph[nodeIds[0]].child[i]].base.indexOf(forkId);
+                    assert(j !== -1);
+                    this.graph[this.graph[nodeIds[0]].child[i]].base.splice(j, 1, nodeIds[0]);
+                }
+
+                delete this.graph[forkId];
+
             }else if( this.pegasusTypeCheck.isMerge(nodeIds[0]) ){//Close the most recent fork
 
+                //Close the current fork
+                mergeId = nodeIds[0];
                 assert(currFork, "No current fork");
-                currFork.end = this.graph[nodeIds[0]].child[0];
-                assert(this.graph[nodeIds[0]].child.length === 1, "Merge operators can have only one node following");
+                currFork.end = this.graph[mergeId].base;
+
+                assert(this.graph[mergeId].child.length === 1, "Merge operators can have only one node following");
+                fsId = this.graph[mergeId].child[0];
 
                 currFork = currFork.out;
-                skip = true;
+
+                assert(this.graph[mergeId].child.length === 1, "Merge operator can only have one connection out");
+                assert(this.pegasusTypeCheck.isFileSet(this.graph[nodeIds[0]].child[0]), "FileSet must follow a Merge operator");
+
+                //Remove Merge object from graph
+                nodeIds[0] = this.graph[mergeId].base[0];
+                this._removeFromGraph(fsId);
+                this._removeFromGraph(mergeId);
 
             }else if( this.pegasusTypeCheck.isFileSet(nodeIds[0]) ){//If the node is a fileset and next is not a fork
                 ids = this._processFileSet(nodeIds[0]);             //Resolve the whole fileset and insert the additional files into the graph
@@ -222,7 +219,6 @@ define(['logManager',
 
                 while(++i < ids.length){
                     this.graph[ids[i]] = { 'base': this.graph[nodeIds[0]].base, 'child': this.graph[nodeIds[0]].child };
-
                 }
                     //j = nodeIds[0].base.length;
                     //while(j--){
@@ -243,44 +239,8 @@ define(['logManager',
             //Replace nodeIds[0] with preview object 
             if(preview){
 
-                i = this.graph[nodeIds[0]].base.length;
-                while(i--){
-                    if(this.graph[this.graph[nodeIds[0]].base[i]].child.indexOf(preview) !== -1)//Kinda hacky
-                        continue;
-
-                    j = this.graph[this.graph[nodeIds[0]].base[i]].child.indexOf(nodeIds[0]);
-                    if(j !== -1){
-                        this.graph[this.graph[nodeIds[0]].base[i]].child.splice(j, 1, preview); //replace nodeIds[0] with preview
-                    }else{
-                        this.graph[this.graph[nodeIds[0]].base[i]].child.push(preview); //replace nodeIds[0] with preview
-                    }
-                }
-
-                i = this.graph[nodeIds[0]].child.length;
-                while(i--){
-                    if(this.graph[this.graph[nodeIds[0]].child[i]].base.indexOf(preview) !== -1)
-                        continue;
-
-                    j = this.graph[this.graph[nodeIds[0]].child[i]].base.indexOf(nodeIds[0]);
-                    if(j !== -1){
-                        this.graph[this.graph[nodeIds[0]].child[i]].base.splice(j, 1, preview); //replace nodeIds[0] with preview
-                    }else{
-                        this.graph[this.graph[nodeIds[0]].child[i]].base.push(preview); //replace nodeIds[0] with preview
-                    }
-                }
-
-                //Add preview to graph
-                this.graph[preview] = this.graph[nodeIds[0]];
-                if(this.graph.start === nodeIds[0])
-                    this.graph.start = preview;
-                delete this.graph[nodeIds[0]];
+                this._replaceInGraph(preview, nodeIds[0]);
             }
-
-            //Create a preview connection btwn preview node and base elements
-            //i = nodeIds[0].base.length;
-            //while(i--){
-                //this._createConnection(nodeIds[0].base[i], nodeIds[0]);//Create connection
-            //}
 
             nodeIds.splice(0,1);
         }
@@ -304,7 +264,7 @@ define(['logManager',
             numCopies,
             startNames = [],
             endNames = [],
-            copyRequest = {},
+            copyRequest = {'parentId': this.outputId},
             nodes = [],
             ids,
             x1,
@@ -324,42 +284,27 @@ define(['logManager',
         }
 
         //Resolve the first and last file
-        var fileObject = this._createFileFromFileSet(fork.start),
-            sfile = fileObject.id,//start file
-            efile;//end file
+        var fileObject = this._createFileFromFileSet(fork.start, true),
+            sfile = fileObject.id;//start file
 
         startNames = fileObject.names;
 
-        fileObject = this._createFileFromFileSet(fork.end);
-        efile = fileObject.id;
-        endNames = fileObject.names;
-
         this._client.completeTransaction();
-
         this._client.startTransaction();
 
         //Insert the files into the graph
         this._replaceInGraph(sfile, fork.start);
-        this._replaceInGraph(efile, fork.end);
 
-        fork.end = efile;
+        fork.start = sfile;
 
         //Get the number of copies needed from fork.start fileset
         numCopies = startNames.length;
-
-        if(endNames.length < startNames.length){
-            i = startNames.length;
-            endNames = [];
-            while(i--){
-                endNames.push(startNames[i] + "out");
-            }
-        }
 
         nodes.push(sfile);
         //Figure out the size of the current fork
 
         var pos;
-        while(this.graph[nodes[0]] && this.graph[nodes[0]].base[0] !== fork.end){//BFS
+        while(this.graph[nodes[0]] && this.graph[nodes[0]].base.indexOf(fork.end[0]) === -1){//BFS
             //Get the position info about entire box
             pos = this._client.getNode(nodes[0]).getRegistry('position');
             x1 = Math.min(x1, pos.x) || pos.x; 
@@ -380,21 +325,30 @@ define(['logManager',
         //Copy the nodes
         var dx = this.dx + (x2-x1),
             dy = this.dy + (y2-y1),
-            nodeIds;
+            nodeIds,
+            base,
+            child,
+            x = {},
+            y = {};
+
+        for(var k in copyRequest){
+            if(copyRequest.hasOwnProperty(k) && k !== 'parentId'){
+                x[k] = copyRequest[k]['registry']['position']['x'];
+                y[k] = copyRequest[k]['registry']['position']['y'];
+                //copyRequest[k]['registry']['position']['y'] += dy;
+            }
+        }
 
         i = 0;
-        while(++i <= numCopies){
+        while(++i < numCopies){
             //Set names
             copyRequest[sfile]['attributes'] = {};
             copyRequest[sfile]['attributes'][nodePropertyNames.Attributes.name] = startNames[i];
-            copyRequest[efile]['attributes'] = {};
-            copyRequest[efile]['attributes'][nodePropertyNames.Attributes.name] = endNames[i];
 
             //Shift each node
             for(var k in copyRequest){
-                if(copyRequest.hasOwnProperty(k)){
-                    copyRequest[k]['registry']['position']['x'] += dx;
-                    copyRequest[k]['registry']['position']['y'] += dy;
+                if(copyRequest.hasOwnProperty(k) && k !== 'parentId'){
+                    copyRequest[k]['registry']['position'] = { 'x': x[k]+=dx, 'y': y[k] };
                 }
             }
 
@@ -403,15 +357,34 @@ define(['logManager',
             for(var k in nodeIds){
                 if(nodeIds.hasOwnProperty(k)){//Insert the node copy into our graph
 
-                    j = this.graph[k].child.length;
+                    if(this.graph.start.indexOf(k) !== -1)
+                        this.graph.start.push(nodeIds[k]);
+
+                    this.graph[nodeIds[k]] = { 'base': [], 'child': [] };
+                    j = this.graph[k].base.length;
                     while(j--){
-                        this.graph[this.graph[k].child[i]].base.push(nodeIds[k]);
+                        base = this.graph[k].base[j];
+
+                        if(nodeIds[base]){
+                            this.graph[nodeIds[k]].base.push(nodeIds[base]);//Set the base of the new point
+                        }else{
+                            this.graph[nodeIds[k]].base.push(base);//Set the base of the new point
+                            this.graph[base].child.push(nodeIds[k]);
+                        }
                     }
 
                     j = this.graph[k].child.length;
                     while(j--){
-                        j = this.graph[this.graph[k].base[j]].child.push(nodeIds[k]);
+                        child = this.graph[k].child[j];
+
+                        if(nodeIds[child]){
+                            this.graph[nodeIds[k]].child.push(nodeIds[child]);//Set the child of the new point
+                        }else{
+                            this.graph[nodeIds[k]].child.push(child);//Set the child of the new point
+                            this.graph[child].base.push(nodeIds[k]);
+                        }
                     }
+
                 }
             }
         }
@@ -421,7 +394,7 @@ define(['logManager',
     };
 
     PegasusInterpreter.prototype._connectPreviewObjects = function(){
-        var nodeIds = [this.graph['start']],
+        var nodeIds = this.graph['start'],
             visited = {},//dictionary of visited nodes
             j;
 
@@ -434,7 +407,7 @@ define(['logManager',
             j = this.graph[nodeIds[0]].base.length;
 
             while(j--){
-                this._createConnection(nodeIds[0], this.graph[nodeIds[0]].base[j]);
+                this._createConnection(this.graph[nodeIds[0]].base[j], nodeIds[0]);
             }
 
             nodeIds = nodeIds.concat(this.graph[nodeIds[0]].child);
@@ -443,24 +416,30 @@ define(['logManager',
     };
 
     PegasusInterpreter.prototype._replaceInGraph = function(nodes, original){
+        var j = this.graph.start.indexOf(original);
         nodes = nodes instanceof Array ? nodes : [nodes];
 
         this._addToGraph(nodes, original);
 
-        if(this.graph.start === original)
-            this.graph.start = nodes[0];
+        if(j !== -1)
+            this.graph.start.splice(j,1);
+
         delete this.graph[original];
     }; 
 
     PegasusInterpreter.prototype._addToGraph = function(nodes, original){
         nodes = nodes instanceof Array ? nodes : [ nodes ];
         var node,
+            isStart = this.graph.start.indexOf(original) > -1,
             k = nodes.length,
             j,
             i;
 
         while(k--){
             node = nodes[k];
+
+            if(isStart)
+                this.graph.start.push(node);
 
             //Set the node's child/base ptrs
             this.graph[node] = this.graph[original];
@@ -493,162 +472,46 @@ define(['logManager',
         }
     }; 
 
-    PegasusInterpreter.prototype._processForkOperation = function(dst, path, index){
-        //Get the next process
-        var prev = index >= 1 ? index - 2 : -1,
-            fsId = index,
-            next,
-            job,
-            jobConn,
-            next,
-            nextItem,
-            conns = [],
-            count = this._getFileNames(path[index]).length,
-            fileObject = this.pegasusTypeCheck.isFileSet(path[fsId]) ? this._createFileFromFileSet(path[fsId], dst) : 
-            { 'id': path[fsId], 'name': this._client.getNode(path[fsId]).getAttribute(nodePropertyNames.Attributes.name), 
-                'position': this._client.getNode(path[fsId]).getRegistry('position') },
-            file = fileObject.id,
-            dx = this.dx,
-            dy = this.dy,
-            i = -1,//total files and jobs to create in parallel
-            names = fileObject.names,
-            shift = {'x': dx * (count-2)/2, 'y': dy * (count-2)/2 },
-            pos = [ { 'x': fileObject.position.x, 'y': fileObject.position.y }]; //input
+    PegasusInterpreter.prototype._removeFromGraph = function(node){
+        //Remove node from graph and splice the base to point to children
+        assert(this.graph[node], "Can't remove non-existent node from graph!");
 
-        //Need to handle the filesets, connection to prev on the first run only.
+        var children = this.graph[node].child,
+            bases = this.graph[node].base,
+            i = children.length,
+            j,
+            k;
 
-        //prev to first created file
-        if(prev !== -1)
-            conns.push(this._createConnection(path[prev], file));
+        //Connect children to base
+        while(i--){
+            j = bases.length;
+            k = this.graph[children[i]].base.indexOf(node);
+            if(k !== -1)
+                this.graph[children[i]].base.splice(k, 1);
 
-        //Copy the initial fileset
-        i = 0;
-        while(++i < count){
-            var attr = {},
-                position = { 'x': pos[0].x+(i)*dx, 'y': pos[0].y+(i)*dy };
-
-            attr[nodePropertyNames.Attributes.name] = names[i];
-            this.extraCopying.push({ 'num': 1, 'id': file, 'dstId': dst, 'attr': { 'attributes': attr, 'registry': {'position': position} }});
+            while(j--){
+                if(this.graph[children[i]].base.indexOf(bases[j]) === -1){
+                    this.graph[children[i]].base.push(bases[j]);
+                }
+            }
         }
 
-        do {
-            /* * * * * * * * Find the next important values    * * * * * * * */
-            prev = index >= 1 ? index - 2 : -1;
-            fsId = index;
-            index += 4;
-            job = index;
-            while(!this.pegasusTypeCheck.isJob(path[job]) && job < path.length - 2){
-                job += 2;
-            }
+        //Connect base to children
+        i = bases.length;
+        while(i--){
+            j = children.length;
+            k = this.graph[bases[i]].child.indexOf(node);
 
-            jobConn = job + 1;
-            next = jobConn < path.length - 1 ? jobConn + 1 : -1;
-            nextItem = next < path.length - 2 ? next + 2 : -1;
-
-            if(!fileObject){//This will happen all but first iteration
-                fileObject = { 'id': path[fsId], 'name': this._client.getNode(path[fsId]).getAttribute(nodePropertyNames.Attributes.name), 
-                    'position': this._client.getNode(path[fsId]).getRegistry('position') };
-                names = outputNames;
-            }
-            file = fileObject.id;
-            i = -1;//total files and jobs to create in parallel
-            pos = [{ 'x': this._client.getNode(path[job]).getRegistry('position').x, 
-                'y': this._client.getNode(path[job]).getRegistry('position').y }];//input, job, output
-
-            /* * * * * * * * Now process things    * * * * * * * */
-            var ofile,
-                outputNames = this.pegasusTypeCheck.isFileSet(path[next]) ? this._getFileNames(path[next]) : [],
-                nextJob;
-            //TODO if path[next] is not a fileset, create one and insert it into the path array
-
-            //Create output names
-            if(outputNames.length < count){
-                outputNames = names.slice(0);
-                while(++i < outputNames.length){
-                    var j;
-                    if((j = outputNames[i].lastIndexOf(".out")) !== -1){
-                        var base = outputNames[i].substr(0, j + 4),
-                            c = parseInt(outputNames[i].substr(j + 4)) || 1;
-
-                        outputNames[i] = base + (c + 1);
-                    }else{
-                        outputNames[i] += '.out';
-                    }
+            if(k !== -1)
+                this.graph[bases[i]].child.splice(k, 1);
+            while(j--){
+                if(this.graph[bases[i]].child.indexOf(children[j]) === -1){
+                    this.graph[bases[i]].child.push(children[j]);
                 }
             }
+        }
 
-            //Create output file
-            shift = { 'x': this.dx * (outputNames.length-2)/2, 'y': this.dy * (outputNames.length-2)/2 };
-
-            if(path[next] === undefined)//Make sure we have an output file!
-                throw "Operation needs an output file!";
-
-            pos.push({ 'x': this._client.getNode(path[next]).getRegistry('position').x,//FIXME shouldn't be hardcoded
-                    'y': this._client.getNode(path[next]).getRegistry('position').y });
-
-            pos[1].x = Math.max(0, pos[1].x - shift.x);
-            pos[1].y = Math.max(0, pos[1].y - shift.y);
-
-            ofile = this._createFile(outputNames[0], pos[1]);
-
-            //In case we are doing another iteration...
-            path[next] = ofile;
-
-            /* * * * * * Job * * * * * */
-            //Shift the pos values to roughly center the boxes
-            pos[0].x = Math.max(0, pos[0].x - shift.x);
-            pos[0].y = Math.max(0, pos[0].y - shift.y);
-
-            
-            //Copy the first job
-            var job_node = this._client.getNode(path[job]);
-
-            path[job] = this._createJob(job_node.getAttribute(nodePropertyNames.Attributes.name), job_node.getAttribute('cmd'), pos[0]);
-
-
-            /* * * * Connections * * * * */
-            //file to job
-            conns.push(this._createConnection(file, path[job]));
-
-            if(path[nextItem] && !this.pegasusTypeCheck.isFork(path[nextItem])){
-                path[nextItem] = this._createPreviewNode(dst, path[nextItem]);
-                conns.push(this._createConnection(ofile, path[nextItem]));
-            }
-
-            //file to job
-            if(jobConn !== -1){
-                //Fix JobConn to point to the correct output file
-                path[jobConn] = this._createConnection(path[job], ofile);
-                conns.push(path[jobConn]);
-            }
-
-            //Now I have created the structure to copy; just need to copy it
-            // (with extraCopying)
-
-            i = 0;
-            while(++i < count){
-                var attr = {},
-                    position = [ { 'x': pos[0] .x+(i)*dx, 'y': pos[0].y+(i)*dy }, { 'x': pos[1] .x+(i)*dx, 'y': pos[1].y+(i)*dy }],
-                    j = conns.length;
-
-                attr[nodePropertyNames.Attributes.name] = outputNames[i];
-
-                this.extraCopying.push({ 'num': 1, 'id': path[job], 'dstId': dst, 'attr': { 'registry': {'position': position[0]} }});
-                this.extraCopying.push({ 'num': 1, 'id': ofile, 'dstId': dst, 'attr': { 'attributes': attr, 'registry': {'position': position[1]} }});
-
-                while(j--){
-                    //TODO Remove the 'num' attribute - deprecated
-                    //Copy the conn(s) for each file copied
-                    this.extraCopying.push({ 'num': 1, 'id': conns[j], 'dstId': dst, 'attr': { 'registry': {'position': position[1]} }});
-                }
-            }
-
-            index = next;
-            conns = [];//Clear conns for next run
-            fileObject = null;
-        } while(nextItem !== -1 && this.pegasusTypeCheck.isFork(path[nextItem]));
-
-        return index+2;
+        delete this.graph[node];
     };
 
     PegasusInterpreter.prototype._processFileSet = function(fsId){//return ids: [ first file, ... rest ]
@@ -692,7 +555,7 @@ define(['logManager',
         return ids;
     };
 
-    PegasusInterpreter.prototype._createFileFromFileSet = function(fsId){
+    PegasusInterpreter.prototype._createFileFromFileSet = function(fsId, doNotMove){//If doNotMove is true, it won't be moved
         var pos = { 'x': this._client.getNode(fsId).getRegistry('position').x,//FIXME shouldn't be hardcoded
             'y': this._client.getNode(fsId).getRegistry('position').y },
             names = this._getFileNames(fsId),
@@ -700,8 +563,10 @@ define(['logManager',
             fileId, 
             shift = { 'x': this.dx * (names.length-1)/2, 'y': this.dy * (names.length-1)/2 };//adjust pos by names and dx/dy
 
-        pos.x = Math.max(0, pos.x - shift.x);
-        pos.y = Math.max(0, pos.y - shift.y);
+        if(!doNotMove){
+            pos.x = Math.max(0, pos.x - shift.x);
+            pos.y = Math.max(0, pos.y - shift.y);
+        }
 
         fileId = this._createFile(name, pos);
 
@@ -780,50 +645,14 @@ define(['logManager',
         k = Math.max(i,j);
         i = Math.min(i,j)-1;
 
+        if(isNaN(i+j))
+            names = [filenames];
+
         while(i++ < j){
             names.push(basename.replace("%COUNT", i));
         }
 
         return names;
-    };
-
-    PegasusInterpreter.prototype._addToParams = function(nodeId, dstId, attr){
-        var k = -1;
-
-        while(++k < this.params.length && (this.params[k].parentId !== dstId || this.params[k][nodeId]));
-
-        if(k === this.params.length || this.params[k][nodeId]){
-            this.params.push({ 'parentId': dstId });
-            k = this.params.length - 1;
-        }
-
-        this.params[k][nodeId] = attr || {};
-        return true;
-    };
-
-    PegasusInterpreter.prototype._correctConnections = function(parentId){
-        var nodeIds = this._client.getNode(parentId).getChildrenIds();
-
-        while(nodeIds.length){
-            var nodeId = nodeIds.splice(0, 1)[0],
-                node = this._client.getNode(nodeId);
-
-            if(node.getPointerNames().indexOf(CONSTANTS.POINTER_SOURCE) === -1)//Is it a type of connection?
-                continue;
-
-            var src = node.getPointer(CONSTANTS.POINTER_SOURCE).to,
-                dst = node.getPointer(CONSTANTS.POINTER_TARGET).to;
-
-            if(!this._isContainedBy(src, parentId))//Then points to something in another project
-                this._client.makePointer(nodeId, CONSTANTS.POINTER_SOURCE, this.original2copy[parentId][src]);
-
-            if(!this._isContainedBy(dst, parentId))//Then points to something in another project
-                this._client.makePointer(nodeId, CONSTANTS.POINTER_TARGET, this.original2copy[parentId][dst]);
-        }
-    };
-
-    PegasusInterpreter.prototype._isContainedBy = function(id, parentId){
-        return id.indexOf(parentId) === 0;
     };
 
     return PegasusInterpreter;
