@@ -1,4 +1,4 @@
-﻿(function () {
+﻿define(function() {
 	var isCommonJS = typeof module !== 'undefined' && module.exports;
 	var isNode = typeof global !== "undefined" && {}.toString.call(global) == '[object global]';
 	var setImmediate = setImmediate || function (cb) {
@@ -328,4 +328,6 @@
 	} else {
 		self.Parallel = Parallel;
 	}
-})();
+
+    return Parallel;
+});
