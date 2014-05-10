@@ -465,6 +465,20 @@ define([ "util/assert", "core/core", "core/tasync" ], function(ASSERT, Core, TAS
             return hash;
         };
 
+        core.getBaseNodeDatasForHash = function(node) {
+
+            ASSERT(isValidNode(node));
+
+            var nodeDatasForHash = [];
+
+            while( node ) {
+                nodeDatasForHash.push(oldcore.getSingleNodeDataForHash(node));
+                node = core.getBase(node);
+            }
+
+            return nodeDatasForHash;
+        }
+
         core.getChildrenPaths = function(node){
             var path = core.getPath(node);
 

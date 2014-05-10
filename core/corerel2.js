@@ -238,7 +238,7 @@ define([ "util/assert", "core/coretree", "util/sha1", "core/tasync", "util/canon
 			return node;
 		}
 
-		function getSingleNodeHash(node) {
+        function getSingleNodeDataForHash(node) {
 			ASSERT(isValidNode(node));
 
 			var data = {
@@ -257,7 +257,11 @@ define([ "util/assert", "core/coretree", "util/sha1", "core/tasync", "util/canon
 				node = coretree.getParent(node);
 			}
 
-			return SHA1(CANON.stringify(data));
+            return CANON.stringify( data );
+        }
+
+		function getSingleNodeHash(node) {
+			return SHA1( getSingleNodeDataForHash(node) );
 		}
 
 		function deleteNode(node) {
@@ -798,7 +802,8 @@ define([ "util/assert", "core/coretree", "util/sha1", "core/tasync", "util/canon
 		corerel.getCollectionNames = getCollectionNames;
 		corerel.getCollectionPaths = getCollectionPaths;
 		corerel.loadCollection = loadCollection;
-		
+
+        corerel.getSingleNodeDataForHash = getSingleNodeDataForHash;
 		corerel.getSingleNodeHash = getSingleNodeHash;
 		
 		corerel.getCoreTree = function() {

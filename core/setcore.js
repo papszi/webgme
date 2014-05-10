@@ -276,6 +276,29 @@ define([ "util/assert"], function (ASSERT) {
             return hash;
         };
 
+        setcore.getBaseNodeDatasForHash = function(node) {
+
+            ASSERT(setcore.isValidNode(node));
+
+            var nodeDatasForHash =
+                [ innerCore.getSingleNodeDataForHash(node) ];
+
+            //now we should stir all the sets hashes into the node's hash to get changes deep inside
+            var names = setcore.getSetNames(node);
+            for(var i=0;i<names.length;i++){
+                var setNode = setcore.getChild(setcore.getChild(node,SETS_ID),names[i]);
+                var memberRelids = setcore.getChildrenRelids(setNode);
+                for(var j=0;j<memberRelids.length;j++){
+                    nodeDatasForHash.push(
+                        innerCore.getSingleNodeDataForHash(setcore.getChild(setNode,memberRelids[j]))
+                    );
+                }
+            }
+
+            return nodeDatasForHash;
+
+        };
+
         return setcore;
 
     }

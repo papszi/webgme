@@ -13,7 +13,9 @@ define([
     'coreclient/import',
     'coreclient/copyimport',
     '/listAllDecorators',
-    '/listAllPlugins'
+    '/listAllPlugins',
+    'common/lib/parallel/parallel',
+    'util/sha1'
 ],
     function (
         ASSERT,
@@ -30,7 +32,9 @@ define([
         MergeImport,
         Import,
         AllDecorators,
-        AllPlugins
+        AllPlugins,
+        Parallel,
+        SHA1
         ) {
 
         var ROOT_PATH = '';
@@ -667,8 +671,41 @@ define([
             function loadChildrenPattern(core,nodesSoFar,node,level,callback){
                 var path = core.getPath(node);
                 _metaNodes[path] = node;
+
+                function calculateHash( nodeDatas ) {
+
+                    var hash = "0000000000000000000000000000000000000000";
+
+                    function xorHashes (a, b) {
+                        var outHash = "";
+                        if(a.length === b.length){
+                            for(var i=0;i< a.length;i++){
+                                outHash += (parseInt(a.charAt(i),16) ^ parseInt(b.charAt(i),16)).toString(16);
+                            }
+                        }
+                        return outHash;
+                    }
+
+                    for ( var i=0; i < nodeDatas.length; i++ ) {
+
+                        hash = xorHashes(
+                            hash,
+                            SHA1( nodeDatas[i] )
+                        );
+                    }
+
+                    return hash;
+                };
+
+                var hash = calculateHash( core.getBaseNodeDatasForHash( node ) );
+
                 if(!nodesSoFar[path]){
-                    nodesSoFar[path] = {node:node,hash:core.getSingleNodeHash(node),incomplete:true,basic:true};
+                    nodesSoFar[path] = {
+                        node: node,
+                        hash: hash,
+                        incomplete: true,
+                        basic: true
+                    };
                 }
                 if(level>0){
                     if(core.getChildrenRelids(nodesSoFar[path].node).length>0){
