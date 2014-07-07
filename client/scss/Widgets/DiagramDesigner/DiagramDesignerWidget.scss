@@ -107,6 +107,11 @@ $tabs-container-height: 26px;
           left: 50%;
           margin-left: -13px;
         }
+
+        &.vfrelation {
+            left: -13px;
+            top: -13px;
+        }
       }
 
       .rotation-deg {
