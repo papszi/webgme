@@ -105,6 +105,9 @@ define(['logManager',
         this.logger.warning("SelectionManager.prototype.onSelectionChanged IS NOT OVERRIDDEN IN HOST COMPONENT. selectedIDs: " + selectedIDs);
     };
 
+    SelectionManager.prototype.infoPanelFactory = function(relation_btn, element) {
+        this.logger.info("SelectionManager.prototype.infoPanelFactory called with no VF instance");
+    };
 
     /********************** MULTIPLE SELECTION MODIFIER KEY CHECK ********************/
     SelectionManager.prototype._isMultiSelectionModifierKeyPressed = function (event) {
@@ -569,11 +572,23 @@ define(['logManager',
     });
     MOVE_BUTTON_BASE.html('<i class="icon-move"></i>');
 
+    var VF_RELATION_BUTTON_BASE = $('<div/>', {
+        "class" : "s-btn vfrelation infoButton",
+        "command" : "vfrelation"
+    });
+    VF_RELATION_BUTTON_BASE.html('<i class="icon-share"></i>');
+
     SelectionManager.prototype._renderSelectionActions = function () {
         var self = this,
             deleteBtn,
             contextMenuBtn,
-            moveBtn;
+            moveBtn,
+            vfRelationBtn;
+
+        // VF Info Button Relation Button
+        vfRelationBtn = VF_RELATION_BUTTON_BASE.clone();
+        this._diagramDesigner.skinParts.$selectionOutline.append(vfRelationBtn);
+        this.infoPanelFactory(vfRelationBtn, this._selectedElements[0]);
 
         if (this._diagramDesigner.getIsReadOnlyMode() === true) {
             return;
@@ -607,6 +622,7 @@ define(['logManager',
         });
 
         this._renderRotateHandlers();
+
     };
     /************* END OF --- RENDER COMMAND BUTTONS ON SELECTION OUTLINE ************************/
     var ROTATION_BUTTON_BASE = $('<div/>', {

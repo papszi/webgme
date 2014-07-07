@@ -17,6 +17,7 @@ define(['logManager',
     'js/Widgets/DiagramDesigner/DiagramDesignerWidget.DesignerItems',
     'js/Widgets/DiagramDesigner/DiagramDesignerWidget.Connections',
     'js/Widgets/DiagramDesigner/DiagramDesignerWidget.Subcomponents',
+    'js/Widgets/DiagramDesigner/DiagramDesignerWidget.VFRelation',
     'js/Widgets/DiagramDesigner/ConnectionRouteManagerBasic',
     'js/Widgets/DiagramDesigner/ConnectionRouteManager2',
     'js/Widgets/DiagramDesigner/ConnectionRouteManager3',
@@ -44,6 +45,7 @@ define(['logManager',
                                                       DiagramDesignerWidgetDesignerItems,
                                                       DiagramDesignerWidgetConnections,
                                                       DiagramDesignerWidgetSubcomponents,
+                                                      ArtifactInfoPanel,
                                                       ConnectionRouteManagerBasic,
                                                       ConnectionRouteManager2,
                                                       ConnectionRouteManager3,
@@ -242,6 +244,24 @@ define(['logManager',
 
         this._activateMouseListeners();
 
+        // VF ArtifactLink integration
+        this._client = params.client;
+        params.vehicleforge = {
+            baseUrl: "http://127.0.0.1:8855",
+            toolRestUrl: "/rest/nbhd/project/tool"
+        };
+        if (params && params.vehicleforge) {
+            this.selectionManager.infoPanelFactory = function (relation_btn, element) {
+                return new ArtifactInfoPanel({
+                    baseUrl: params.vehicleforge.baseUrl,
+                    addUrl: params.vehicleforge.toolRestUrl + '/linkbin',
+                    infoURL: '/artifact_ref/get_references/',
+                    refId: "WebGME." + self._client.getActiveProject() + '.' + element + '.' + self._client.getActualBranch(),
+                    infoTriggerE: relation_btn,
+                    embedded: true
+                });
+            };
+        }
 
         this.logger.debug("DiagramDesignerWidget ctor finished");
     };
