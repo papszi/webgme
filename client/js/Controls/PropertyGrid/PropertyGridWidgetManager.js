@@ -11,6 +11,7 @@ define([
     'js/Utils/ColorUtil',
     'js/Controls/PropertyGrid/Widgets/DialogWidget',
     'js/Controls/PropertyGrid/Widgets/AssetWidget',
+    'js/Controls/PropertyGrid/Widgets/VulcanLinkWidget',
     './PropertyGridWidgets'],
     function (StringWidget,
               NumberBoxWidget,
@@ -22,6 +23,7 @@ define([
               colorUtil,
               DialogWidget,
               AssetWidget,
+              VulcanLinkWidget,
               PropertyGridWidgets) {
 
         var PropertyGridWidgetManager;
@@ -63,6 +65,8 @@ define([
                     widget = new NumberBoxWidget(propDesc);
                 } else if (_type === "boolean") {
                     widget = new BooleanWidget(propDesc);
+                } else if (_type === "vulcanLink") {
+                    widget = new VulcanLinkWidget(propDesc);
                 } else {
                     widget = new StringWidget(propDesc);
                 }
