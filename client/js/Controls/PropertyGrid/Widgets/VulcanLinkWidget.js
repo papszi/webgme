@@ -33,39 +33,35 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
         VulcanLinkWidget.prototype._attachLinkDropHandlers = function () {
             var self = this;
 
-            this.__linkDropTarget.artifactLinkDroppable(function(artifactLink){
-                var isExchangeComponent = (artifactLink.artifactType === "Exchange Component"),
-                    data = {
-                        artifact_ref_id: artifactLink.refId,
-                        init_from: isExchangeComponent ? "component" : "repo_link"
-                    };
-                //that.postArtifact(data, artifactLink.label);
-            });
+            this.__linkDropTarget.artifactLinkDroppable = function (action, types) {
 
-            //filedrag
-            this.__linkDropTarget.on('dragover', function (event) {
-                event.stopPropagation();
-                event.preventDefault(); //IE 10 needs this to ba able to drop
-            });
+                var that = this, artifactLink;
 
-            this.__linkDropTarget.on('dragenter', function (event) {
-                event.stopPropagation();
-                event.preventDefault();
-                self.__linkDropTarget.addClass('hover');
-            });
+                this.droppable({
+                    accept: function (draggable) {
+                        artifactLink = draggable.data('host');
+                        return ( types === undefined || ( artifactLink && types.indexOf(artifactLink.artifactType) !== -1 ) );
+                    },
 
-            this.__linkDropTarget.on('dragleave', function (event) {
-                event.stopPropagation();
-                event.preventDefault();
-                self.__linkDropTarget.removeClass('hover');
-            });
+                    drop: function (event, ui) {
+                        artifactLink = ui.draggable.data('host');
+                        ui.helper.css( 'cursor', ui.helper.data( 'cursorBefore'));
+                        action.call(that, artifactLink);
+                    },
 
-            this.__linkDropTarget.on("drop", function (event) {
-                event.stopPropagation();
-                event.preventDefault();
-                self.__linkDropTarget.removeClass('hover');
-                //self._fileSelectHandler(event.originalEvent);
-            });
+                    over: function (event, ui) {
+                        ui.helper.data( 'cursorBefore', ui.helper.css( 'cursor') );
+                        ui.helper.css( 'cursor', 'copy');
+                    },
+
+                    out: function (event, ui) {
+                        ui.helper.css( 'cursor', ui.helper.data( 'cursorBefore') );
+                    },
+                    activeClass: 'hover',
+                    hoverClass: 'hover'
+
+                });
+            };
         };
 
         VulcanLinkWidget.prototype._detachFileDropHandlers = function () {
