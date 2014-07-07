@@ -33,6 +33,15 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
         VulcanLinkWidget.prototype._attachLinkDropHandlers = function () {
             var self = this;
 
+            this.__linkDropTarget.artifactLinkDroppable(function(artifactLink){
+                var isExchangeComponent = (artifactLink.artifactType === "Exchange Component"),
+                    data = {
+                        artifact_ref_id: artifactLink.refId,
+                        init_from: isExchangeComponent ? "component" : "repo_link"
+                    };
+                //that.postArtifact(data, artifactLink.label);
+            });
+
             //filedrag
             this.__linkDropTarget.on('dragover', function (event) {
                 event.stopPropagation();
