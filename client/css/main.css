@@ -7,6 +7,7 @@
 @import url("jquery/jquery.gritter.css");
 @import url("jquery/jquery.csszoom.css");
 @import url("jquery/jquery.spectrum.css");
+@import url("jquery/jquery.qtip.min.css");
 
 /* OWN STYLES */
 html,body {

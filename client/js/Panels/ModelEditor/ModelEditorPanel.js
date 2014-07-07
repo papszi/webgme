@@ -3,11 +3,13 @@
 define(['js/PanelBase/PanelBaseWithHeader',
     'js/PanelManager/IActivePanel',
     'js/Widgets/ModelEditor/ModelEditorWidget',
-    './ModelEditorControl'
+    './ModelEditorControl',
+    'clientUtil'
 ], function (PanelBaseWithHeader,
              IActivePanel,
              ModelEditorWidget,
-             ModelEditorControl) {
+             ModelEditorControl,
+             clientUtil) {
 
     var ModelEditorPanel;
 
@@ -33,9 +35,22 @@ define(['js/PanelBase/PanelBaseWithHeader',
     _.extend(ModelEditorPanel.prototype, IActivePanel.prototype);
 
     ModelEditorPanel.prototype._initialize = function () {
-        var self = this;
+        var self = this,
+            params = {
+                toolbar: this.toolBar,
+                client: this._client
+            },
+            vfBaseUrl;
 
-        this.widget = new ModelEditorWidget(this.$el, {'toolBar': this.toolBar});
+        vfBaseUrl = clientUtil.getURLParameterByName("vfBaseUrl");
+        if (vfBaseUrl) {
+            params.vehicleforge = {
+                baseUrl: vfBaseUrl,
+                toolRestUrl: clientUtil.getURLParameterByName("vfToolRestUrl")
+            };
+        }
+
+        this.widget = new ModelEditorWidget(this.$el, params);
 
         this.widget.setTitle = function (title) {
             self.setTitle(title);
