@@ -33,35 +33,30 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
         VulcanLinkWidget.prototype._attachLinkDropHandlers = function () {
             var self = this;
 
-            this.__linkDropTarget.artifactLinkDroppable = function (action, types) {
+            //filedrag
+            this.__linkDropTarget.on('dragover', function (event) {
+                event.stopPropagation();
+                event.preventDefault(); //IE 10 needs this to ba able to drop
+            });
 
-                var that = this, artifactLink;
+            this.__linkDropTarget.on('dragenter', function (event) {
+                event.stopPropagation();
+                event.preventDefault();
+                self.__linkDropTarget.addClass('hover');
+            });
 
-                this.droppable({
-                    accept: function (draggable) {
-                        artifactLink = draggable.data('host');
-                        return ( types === undefined || ( artifactLink && types.indexOf(artifactLink.artifactType) !== -1 ) );
-                    },
+            this.__linkDropTarget.on('dragleave', function (event) {
+                event.stopPropagation();
+                event.preventDefault();
+                self.__linkDropTarget.removeClass('hover');
+            });
 
-                    drop: function (event, ui) {
-                        artifactLink = ui.draggable.data('host');
-                        ui.helper.css( 'cursor', ui.helper.data( 'cursorBefore'));
-                        action.call(that, artifactLink);
-                    },
-
-                    over: function (event, ui) {
-                        ui.helper.data( 'cursorBefore', ui.helper.css( 'cursor') );
-                        ui.helper.css( 'cursor', 'copy');
-                    },
-
-                    out: function (event, ui) {
-                        ui.helper.css( 'cursor', ui.helper.data( 'cursorBefore') );
-                    },
-                    activeClass: 'hover',
-                    hoverClass: 'hover'
-
-                });
-            };
+            this.__linkDropTarget.on("drop", function (event) {
+                event.stopPropagation();
+                event.preventDefault();
+                self.__linkDropTarget.removeClass('hover');
+                self._linkDropHandler(event.originalEvent);
+            });
         };
 
         VulcanLinkWidget.prototype._detachFileDropHandlers = function () {
@@ -109,7 +104,7 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
             }
         };
 
-        VulcanLinkWidget.prototype._fileSelectHandler = function (event) {
+        VulcanLinkWidget.prototype._linkDropHandler = function (event) {
             var self = this,
                 blobClient = new BlobClient(),
                 i,
@@ -119,46 +114,29 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
             event.stopPropagation();
             event.preventDefault();
 
-            // fetch FileList object
-            var files = event.target.files || event.dataTransfer.files;
+            var droppedData = JSON.parse(event.dataTransfer.getData("application/json"));
+            var afName = self.propertyName;
+            var artifact = blobClient.createArtifact(afName);
 
-            // process all File objects
-            if (files && files.length > 0) {
-                this._detachFileDropHandlers(true);
+            $.ajax({
+                dataType:'blob',
+                type:'GET',
+                url:droppedData.clickURL + "/zip"
+            }).done(function(blob){
+                artifact.addFileAsSoftLink(droppedData.label+'.zip', blob, function (err, hash) {
 
-                var afName = self.propertyName;
-                var artifact = blobClient.createArtifact(afName);
+                    if (err) {
+                        //TODO: something went wrong, tell the user????
+                    } else {
+                        // successfully uploaded
+                    }
 
-                var remainingFiles = files.length;
+                    self.setValue(hash);
+                    self.fireFinishChange();
+                    self._attachFileDropHandlers(false);
+                });
+            });
 
-                for (i = 0; i < files.length; i += 1) {
-                    file = files[i];
-                    artifact.addFileAsSoftLink(file.name, file, function (err, hash) {
-                        remainingFiles -= 1;
-
-                        if (err) {
-                            //TODO: something went wrong, tell the user????
-                        } else {
-                            // successfully uploaded
-                        }
-
-                        if (remainingFiles === 0) {
-                            if (files.length > 1) {
-                                artifact.save(function (err, artifactHash) {
-                                    self.setValue(artifactHash);
-                                    self.fireFinishChange();
-                                    self._attachFileDropHandlers(false);
-                                });
-
-                            } else {
-                                self.setValue(hash);
-                                self.fireFinishChange();
-                                self._attachFileDropHandlers(false);
-                            }
-                        }
-                    });
-                }
-            }
         };
 
         VulcanLinkWidget.prototype._humanFileSize = function (bytes, si) {
