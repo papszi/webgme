@@ -246,10 +246,6 @@ define(['logManager',
 
         // VF ArtifactLink integration
         this._client = params.client;
-        params.vehicleforge = {
-            baseUrl: "http://127.0.0.1:8855",
-            toolRestUrl: "/rest/nbhd/project/tool"
-        };
         if (params && params.vehicleforge) {
             this.selectionManager.infoPanelFactory = function (relation_btn, element) {
                 return new ArtifactInfoPanel({

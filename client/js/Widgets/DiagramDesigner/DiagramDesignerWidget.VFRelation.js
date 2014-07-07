@@ -143,7 +143,7 @@ define(['logManager',
                     'class': 'infoButton'
                 });
 
-                that.infoPanel = new $vf.ArtifactInfoPanel({
+                that.infoPanel = new ArtifactInfoPanel({
                     parentClickURL: this.clickURL,
                     infoURL: this.infoURL,
                     refId: this.refId,
