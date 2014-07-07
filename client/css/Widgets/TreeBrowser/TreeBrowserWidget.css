@@ -1,5 +1,3 @@
-@import url("./../../dynatree/ui.dynatree.css");
-@import url("./../../contextmenu/jquery.contextMenu.css");
 /*
  * Copyright (C) 2013 Vanderbilt University, All rights reserved.
  *
@@ -7,6 +5,8 @@
  */
 /*IMPORTS*/
 /* original DynaTree Vista-theme css from DynaTree distribution */
+@import url("./../../dynatree/ui.dynatree.css");
+@import url("./../../contextmenu/jquery.contextMenu.css");
 .tree-browser {
   /* DynaTree Vista-theme overrides */
   /* END OF --- DynaTree Vista-theme overrides */

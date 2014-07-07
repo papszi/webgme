@@ -51,6 +51,9 @@
           top: -13px;
           left: 50%;
           margin-left: -13px; }
+        .diagram-designer .items .selection-outline .s-btn.vfrelation {
+          left: -13px;
+          top: -13px; }
       .diagram-designer .items .selection-outline .rotation-deg {
         text-align: center;
         vertical-align: middle;
@@ -123,7 +126,7 @@
       fill: yellow;
       stroke: red; }
     .diagram-designer .items svg.connection-container .path-edit-segment {
-      stroke: rgba(0, 0, 0, 0);
+      stroke: transparent;
       opacity: 0; }
     .diagram-designer .items svg.connection-container .segment-point {
       fill: yellow;
