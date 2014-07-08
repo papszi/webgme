@@ -248,7 +248,9 @@ define(['logManager',
         this._client = params.client;
         if (params && params.vehicleforge) {
             this._vehicleforge = params.vehicleforge;
-            this.selectionManager.infoPanelFactory = this._infoPanelFactory;
+            this.selectionManager.infoPanelFactory = function (relation_btn, element) {
+                self._infoPanelFactory(relation_btn, element);
+            }
         }
 
         this.logger.debug("DiagramDesignerWidget ctor finished");

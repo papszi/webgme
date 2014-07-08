@@ -156,6 +156,10 @@ define(['logManager',
             self._onSelectedTabChanged(tabID);
         };
 
+        this.designerCanvas.createInfoPanel = function (relation_btn, vehicleforge, selectedId) {
+            self._createInfoPanel(relation_btn, vehicleforge, selectedId);
+        };
+
         this.logger.debug("attachDiagramDesignerWidgetEventHandlers finished");
     };
 
@@ -1110,7 +1114,7 @@ define(['logManager',
         );
     };
 
-    ModelEditorControlDiagramDesignerWidgetEventHandlers.prototype.createInfoPanel = function (relation_btn, vehicleforge, selectedId) {
+    ModelEditorControlDiagramDesignerWidgetEventHandlers.prototype._createInfoPanel = function (relation_btn, vehicleforge, selectedId) {
         var gmeId = this._ComponentID2GMEID[selectedId];
         return new ArtifactInfoPanel({
             baseUrl: vehicleforge.baseUrl,
