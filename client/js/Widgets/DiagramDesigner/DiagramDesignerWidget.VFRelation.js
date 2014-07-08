@@ -483,7 +483,7 @@ define(['logManager',
                 contentE.find('.references-loading').remove();
             }
 
-            if ( config.embedded ) {
+            if ( config.embedded && config.containerE ) {
                 config.containerE.prepend($('<h4>Related</h4>'));
             }
 
