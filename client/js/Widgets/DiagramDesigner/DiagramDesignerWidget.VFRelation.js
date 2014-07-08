@@ -429,8 +429,7 @@ define(['logManager',
                                     text: relationInstance[0],
                                     title: relationInstance[0],
                                     click: function () {
-                                        top.location.href =
-                                            relationInstance[1];
+                                        top.location.href = config.baseUrl + relationInstance[1];
                                     }
                                 });
 
@@ -461,7 +460,7 @@ define(['logManager',
 
             // Create Link
 
-            if (data.shortLink && config.hideCreateLinkButton !== true) {
+            if (false && data.shortLink && config.hideCreateLinkButton !== true) {
                 createLinkButton = new CopyLinkButton({
                     containerE: contentE,
                     refId: config.refId,
