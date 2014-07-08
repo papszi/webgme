@@ -1115,7 +1115,7 @@ define(['logManager',
     };
 
     ModelEditorControlDiagramDesignerWidgetEventHandlers.prototype._createInfoPanel = function (relation_btn, vehicleforge, selectedId) {
-        var gmeId = this._ComponentID2GMEID[selectedId];
+        var gmeId = this._ComponentID2GmeID[selectedId];
         return new ArtifactInfoPanel({
             baseUrl: vehicleforge.baseUrl,
             addUrl: vehicleforge.toolRestUrl + '/linkbin?_method=put',
