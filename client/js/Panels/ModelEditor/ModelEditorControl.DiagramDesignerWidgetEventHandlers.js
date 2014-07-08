@@ -1124,7 +1124,7 @@ define(['logManager',
             infoURL: '/artifact_ref/get_references/',
             refId: "WebGME." + this._client.getActiveProject() + '.' + gmeId + '.' + this._client.getActualBranch(),
             infoTriggerE: relation_btn,
-            embedded: true
+            embedded: false
         });
     };
 
