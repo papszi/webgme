@@ -38,6 +38,7 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
             //filedrag
             this.__linkDropTarget.on('dragover dragenter', function (event) {
                 event.preventDefault(); //IE 10 needs this to ba able to drop
+                self.__linkDropTarget.addClass('hover');
             });
 
             this.__linkDropTarget.on('dragleave', function (event) {
@@ -53,7 +54,7 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
             });
         };
 
-        VulcanLinkWidget.prototype._detachFileDropHandlers = function () {
+        VulcanLinkWidget.prototype._detachLinkDropHandlers = function () {
             //linkdrag
             this.__linkDropTarget.off('dragover');
             this.__linkDropTarget.off('dragenter');
@@ -92,9 +93,9 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
         VulcanLinkWidget.prototype.setReadOnly = function (isReadOnly) {
             VulcanLinkWidget.superclass.prototype.setReadOnly.call(this, isReadOnly);
 
-            this._detachFileDropHandlers();
+            this._detachLinkDropHandlers();
             if (isReadOnly !== true) {
-                this._attachFileDropHandlers();
+                this._attachLinkDropHandlers();
             }
         };
 
@@ -126,7 +127,7 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
 
                             self.setValue(hash);
                             self.fireFinishChange();
-                            self._attachFileDropHandlers(false);
+                            self._attachLinkDropHandlers(false);
                         });
 
                     }
