@@ -497,21 +497,17 @@ define(['logManager',
                 'class': 'copyLinkButton',
                 'title': 'Add to Link Bin',
                 click: function () {
-                    if ( top.$vf && top.$vf.referenceBin ) {
-                        top.$vf.referenceBin.addReference(config.refId);
-                    } else {
-                        $.ajax({
-                            url: config.baseUrl + config.addUrl,
-                            type: 'PUT',
-                            data: {
-                                'ref_id': config.refId
-                            },
-                            dataType: "json",
-                            error: function() {
+                    $.ajax({
+                        url: config.baseUrl + config.addUrl,
+                        type: 'PUT',
+                        data: {
+                            'ref_id': config.refId
+                        },
+                        dataType: "json",
+                        error: function() {
 
-                            }
-                        });
-                    }
+                        }
+                    });
                 }
             });
             config.containerE.append(buttonE);
