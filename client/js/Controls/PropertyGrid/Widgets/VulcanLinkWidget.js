@@ -127,17 +127,17 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
                     url: vfBaseUrl + '/rest' + droppedData.clickURL + "zip",
                     xhrFields: {withCredentials: true},
                     success: function (data, textStatus, jqXHR) {
-                        console.log(droppedData.label+'.zip');
                         artifact.addFileAsSoftLink(droppedData.label+'.zip', data, function (err, hash) {
                             if (err) {
                                 //TODO: something went wrong, tell the user????
                             } else {
                                 // successfully uploaded
                             }
-
-                            self.setValue(hash);
-                            self.fireFinishChange();
-                            self._attachFileDropHandlers(false);
+                            artifact.save(function (err, artifactHash) {
+                                self.setValue(artifactHash);
+                                self.fireFinishChange();
+                                self._attachFileDropHandlers(false);
+                            });
                         });
                     }
                 });
