@@ -265,7 +265,7 @@ define(['logManager',
                 event: 'click',
                 solo: true // Only show one tooltip at a time
             },
-            hide: 'unfocus',
+            hide: {event: 'unfocus'},
             style: {
                 classes: 'ui-tooltip-artifact'
             }
