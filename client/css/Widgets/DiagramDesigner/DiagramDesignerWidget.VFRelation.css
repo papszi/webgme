@@ -375,13 +375,6 @@
   background-color: rgba(255, 255, 255, 0.9);
   background: #ffffff;
   /* Old browsers */
-  background: -o-linear-gradient(top, white 0%, #f1f1f1 50%, #e1e1e1 51%, #f6f6f6 100%);
-  background: -ms-linear-gradient(top, white 0%, #f1f1f1 50%, #e1e1e1 51%, #f6f6f6 100%);
-  background: -webkit-linear-gradient(top, white 0%, #f1f1f1 50%, #e1e1e1 51%, #f6f6f6 100%);
-  background: -moz-linear-gradient(top, white 0%, #f1f1f1 50%, #e1e1e1 51%, #f6f6f6 100%);
-  background: linear-gradient(top, white 0%, #f1f1f1 50%, #e1e1e1 51%, #f6f6f6 100%);
-  filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffffff', endColorstr='#f6f6f6',GradientType=0 );
-  /* IE6-9 */
   opacity: .9;
   margin-bottom: 1px;
   padding: 0px 4px 2px;
@@ -474,13 +467,6 @@
   display: none;
   border-: 1px solid #bbb;
   padding: 0px;
-  background: #45484d;
-  /* Old browsers */
-  background: -o-linear-gradient(top, #45484d 0%, #161925 100%);
-  background: -ms-linear-gradient(top, #45484d 0%, #161925 100%);
-  background: -webkit-linear-gradient(top, #45484d 0%, #161925 100%);
-  background: -moz-linear-gradient(top, #45484d 0%, #161925 100%);
-  background: linear-gradient(top, #45484d 0%, #161925 100%);
   -moz-box-shadow: 0 0 3px #333;
   -webkit-box-shadow: 0 0 3px #333;
   box-shadow: 0 0 3px #333; }
@@ -492,8 +478,7 @@
   display: block; }
 
 .relations.embedded .mount-point-label {
-  cursor: pointer;
-  background-color: #eee; }
+  cursor: pointer; }
 
 .relations.embedded .artifactLinkListElement {
   width: 115px;
@@ -561,13 +546,6 @@
 .markdown_content .artifact-link-container:hover {
   background: #ffffff;
   /* Old browsers */
-  background: -o-linear-gradient(top, white 0%, #f1f1f1 50%, #e1e1e1 51%, #f6f6f6 100%);
-  background: -ms-linear-gradient(top, white 0%, #f1f1f1 50%, #e1e1e1 51%, #f6f6f6 100%);
-  background: -webkit-linear-gradient(top, white 0%, #f1f1f1 50%, #e1e1e1 51%, #f6f6f6 100%);
-  background: -moz-linear-gradient(top, white 0%, #f1f1f1 50%, #e1e1e1 51%, #f6f6f6 100%);
-  background: linear-gradient(top, white 0%, #f1f1f1 50%, #e1e1e1 51%, #f6f6f6 100%);
-  filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffffff', endColorstr='#f6f6f6',GradientType=0 );
-  /* IE6-9 */
   border: 1px solid #9696b3; }
 
 .markdown_content .artifact-link {

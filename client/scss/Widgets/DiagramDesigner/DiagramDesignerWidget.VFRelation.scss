@@ -1,20 +1,4 @@
 
-@mixin linearGradient2($direction, $stop1, $stop2) {
-  background: -o-linear-gradient($direction, $stop1, $stop2);
-  background: -ms-linear-gradient($direction, $stop1, $stop2);
-  background: -webkit-linear-gradient($direction, $stop1, $stop2);
-  background: -moz-linear-gradient($direction, $stop1, $stop2);
-  background: linear-gradient($direction, $stop1, $stop2);
-}
-
-@mixin linearGradient4($direction, $stop1, $stop2, $stop3, $stop4) {
-  background: -o-linear-gradient($direction, $stop1, $stop2, $stop3, $stop4);
-  background: -ms-linear-gradient($direction, $stop1, $stop2, $stop3, $stop4);
-  background: -webkit-linear-gradient($direction, $stop1, $stop2, $stop3, $stop4);
-  background: -moz-linear-gradient($direction, $stop1, $stop2, $stop3, $stop4);
-  background: linear-gradient($direction, $stop1, $stop2, $stop3, $stop4);
-}
-
 .bbs {
   box-sizing: border-box;
   -webkit-box-sizing:border-box;
@@ -472,8 +456,6 @@
 
 
     background: #ffffff; /* Old browsers */
-    @include linearGradient4(top, #fff 0%, #f1f1f1 50%, #e1e1e1 51%, #f6f6f6 100%);
-    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#f6f6f6',GradientType=0 ); /* IE6-9 */
 
     opacity: .9;
     margin-bottom: 1px;
@@ -583,9 +565,6 @@
     border-: 1px solid #bbb;
     padding: 0px;
 
-    background: rgb(69,72,77); /* Old browsers */
-    @include linearGradient2(top,  rgba(69,72,77,1) 0%, rgba(22,25,37,1) 100%);
-
     -moz-box-shadow: 0 0 3px #333;
     -webkit-box-shadow: 0 0 3px #333;
     box-shadow: 0 0 3px #333;
@@ -602,7 +581,6 @@
 
 .relations.embedded .mount-point-label {
     cursor: pointer;
-    background-color: #eee;
 }
 
 .relations.embedded .artifactLinkListElement {
@@ -684,8 +662,6 @@ $related-artifacts-height: 24px;
 
 .markdown_content .artifact-link-container:hover {
     background: #ffffff; /* Old browsers */
-    @include linearGradient4(top, #ffffff 0%, #f1f1f1 50%, #e1e1e1 51%, #f6f6f6 100%);
-    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#f6f6f6',GradientType=0 ); /* IE6-9 */
 
     border: 1px solid #9696b3;
 }
