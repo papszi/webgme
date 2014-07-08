@@ -121,7 +121,7 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
             $.ajax({
                 dataType:'blob',
                 type:'GET',
-                url:droppedData.clickURL + "/zip"
+                url:droppedData.clickURL + "zip"
             }).done(function(blob){
                 artifact.addFileAsSoftLink(droppedData.label+'.zip', blob, function (err, hash) {
 
