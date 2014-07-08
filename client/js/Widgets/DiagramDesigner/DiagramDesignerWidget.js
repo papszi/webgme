@@ -250,7 +250,7 @@ define(['logManager',
             this.selectionManager.infoPanelFactory = function (relation_btn, element) {
                 return new ArtifactInfoPanel({
                     baseUrl: params.vehicleforge.baseUrl,
-                    addUrl: params.vehicleforge.toolRestUrl + '/linkbin/add_object_link',
+                    addUrl: params.vehicleforge.toolRestUrl + '/linkbin',
                     infoURL: '/artifact_ref/get_references/',
                     refId: "WebGME." + self._client.getActiveProject() + '.' + element + '.' + self._client.getActualBranch(),
                     infoTriggerE: relation_btn,

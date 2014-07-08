@@ -49,7 +49,7 @@ define(['js/PanelBase/PanelBaseWithHeader',
                 toolRestUrl: clientUtil.getURLParameterByName("vfToolRestUrl")
             };
             this._client.addEventListener(this._client.events.PROJECT_OPENED, function (__project, projectName) {
-                var url = vfBaseUrl + params.vehicleforge.toolRestUrl + '/project/create_project';
+                var url = vfBaseUrl + params.vehicleforge.toolRestUrl + '/project';
                 $.ajax({
                     url: url,
                     type: 'PUT',
