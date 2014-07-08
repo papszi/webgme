@@ -232,6 +232,7 @@ define(['logManager',
                             url: config.baseUrl + config.infoURL, // URL to the JSON script
                             type: 'GET', // POST or GET
                             data: {artifact_ref: config.refId}, // Data to pass along with your request
+                            xhrFields: {withCredentials: true},
                             dataType: 'json', // Tell it we're retrieving JSON
                             success: function (data) {
                                 that.render(data);
@@ -501,10 +502,9 @@ define(['logManager',
                     } else {
                         $.ajax({
                             url: config.baseUrl + config.addUrl,
-                            type: 'POST',
+                            type: 'PUT',
                             data: {
-                                'ref_id': config.refId,
-                                '_session_id': cval
+                                'ref_id': config.refId
                             },
                             dataType: "json",
                             error: function() {

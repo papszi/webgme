@@ -52,7 +52,7 @@ define(['js/PanelBase/PanelBaseWithHeader',
                 var url = vfBaseUrl + params.vehicleforge.toolRestUrl + '/project';
                 $.ajax({
                     url: url,
-                    type: 'POST',
+                    type: 'PUT',
                     data: {project_name: projectName},
                     xhrFields: {withCredentials: true}
                 });
