@@ -48,6 +48,15 @@ define(['js/PanelBase/PanelBaseWithHeader',
                 baseUrl: vfBaseUrl,
                 toolRestUrl: clientUtil.getURLParameterByName("vfToolRestUrl")
             };
+            this._client.addEventListener(this._client.events.PROJECT_OPENED, function (__project, projectName) {
+                var url = vfBaseUrl + params.vehicleforge.toolRestUrl + '/project';
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: {project_name: projectName},
+                    xhrFields: {withCredentials: true}
+                });
+            });
         }
 
         this.widget = new ModelEditorWidget(this.$el, params);
