@@ -7,7 +7,15 @@ define(['logManager',
         ArtifactLink,
         CopyLinkButton,
         ArtifactLinkList,
-        defaultInfoURL = '/artifact_ref/get_references/';
+        defaultInfoURL = '/artifact_ref/get_references/',
+        slugify;
+
+    slugify = function (str) {
+        return str.toString().
+            toLowerCase().
+            replace(/[^A-Za-z0-9]+/g, '-').
+            replace(/(^-|-$)/g, '');
+    };
 
     /**
      * ArtifactLink
@@ -66,7 +74,7 @@ define(['logManager',
             }
             this.el = el.addClass('artifact-link');
             if (this.artifactType) {
-                el.addClass('artifact-link-' + $vf.slugify(this.artifactType));
+                el.addClass('artifact-link-' + slugify(this.artifactType));
             }
 
             if (this.showIcon &&
@@ -107,7 +115,7 @@ define(['logManager',
 
                     // we will get the css class for the given artifactType
 
-                    iconE.addClass($vf.slugify(this.artifactType));
+                    iconE.addClass(slugify(this.artifactType));
 
                 }
 
@@ -170,7 +178,7 @@ define(['logManager',
             this.containerE.removeClass('rendering');
 
             if (this.leftTrimmed) {
-                $vf.handleTrimLeft(this.labelE);
+                // handleTrimLeft(this.labelE);
             }
 
         };
@@ -392,7 +400,7 @@ define(['logManager',
                                     labelMaxWidth = 105;
                                 }
 
-                                linkList = new $vf.ArtifactLinkList({
+                                linkList = new ArtifactLinkList({
                                     containerE: instancesListE,
                                     referenceDescriptors: relation.instances,
                                     editable: false,
