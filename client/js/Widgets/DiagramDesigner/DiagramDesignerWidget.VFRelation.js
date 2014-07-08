@@ -533,8 +533,6 @@ define(['logManager',
      */
     ArtifactLinkList = function (config) {
 
-        trace('ArtifactLinkList created...');
-
         var that = this;
         var liE, artifactLink, artifactLinkList, removeE;
 
