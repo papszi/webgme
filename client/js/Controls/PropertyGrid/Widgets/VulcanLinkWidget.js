@@ -126,9 +126,9 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
                     type:'GET',
                     url: vfBaseUrl + '/rest' + droppedData.clickURL + "zip",
                     xhrFields: {withCredentials: true},
-                    success: function (blob) {
+                    success: function (data, textStatus, jqXHR) {
                         console.log(droppedData.label+'.zip');
-                        artifact.addFileAsSoftLink(droppedData.label+'.zip', blob, function (err, hash) {
+                        artifact.addFileAsSoftLink(droppedData.label+'.zip', data, function (err, hash) {
                             if (err) {
                                 //TODO: something went wrong, tell the user????
                             } else {
