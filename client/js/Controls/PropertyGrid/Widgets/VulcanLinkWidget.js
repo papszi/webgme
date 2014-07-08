@@ -36,19 +36,11 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
             var self = this;
 
             //filedrag
-            this.__linkDropTarget.on('dragover', function (event) {
-                event.stopPropagation();
+            this.__linkDropTarget.on('dragover dragenter', function (event) {
                 event.preventDefault(); //IE 10 needs this to ba able to drop
             });
 
-            this.__linkDropTarget.on('dragenter', function (event) {
-                event.stopPropagation();
-                event.preventDefault();
-                self.__linkDropTarget.addClass('hover');
-            });
-
             this.__linkDropTarget.on('dragleave', function (event) {
-                event.stopPropagation();
                 event.preventDefault();
                 self.__linkDropTarget.removeClass('hover');
             });
@@ -121,28 +113,27 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
             vfBaseUrl = clientUtil.getURLParameterByName("vfBaseUrl");
 
             if (vfBaseUrl) {
-                $.ajax({
-                    dataType:'blob',
-                    type:'GET',
-                    url: vfBaseUrl + '/rest' + droppedData.clickURL + "zip",
-                    xhrFields: {withCredentials: true}
-                }).done(function(data) {
-                    console.log(droppedData.label+'.zip');
-                    artifact.addFileAsSoftLink(droppedData.label+'.zip', data, function (err, hash) {
-                        if (err) {
-                            //TODO: something went wrong, tell the user????
-                        } else {
-                            // successfully uploaded
-                        }
+                var xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = function(){
+                    if (this.readyState == 4 && this.status == 200){
+                        console.log(droppedData.label+'.zip');
+                        artifact.addFileAsSoftLink(droppedData.label+'.zip', this.response, function (err, hash) {
+                            if (err) {
+                                //TODO: something went wrong, tell the user????
+                            } else {
+                                // successfully uploaded
+                            }
 
-                        self.setValue(hash);
-                        self.fireFinishChange();
-                        self._attachFileDropHandlers(false);
-                    });
-                }).fail(function(jqXHR, textStatus, errorThrown)  {
-                    console.log("textStatus: " + textStatus);
-                    console.log("errorThrown: " + errorThrown);
-                });
+                            self.setValue(hash);
+                            self.fireFinishChange();
+                            self._attachFileDropHandlers(false);
+                        });
+
+                    }
+                }
+                xhr.open('GET', vfBaseUrl + '/rest' + droppedData.clickURL + "zip");
+                xhr.responseType = 'blob';
+                xhr.send();
             }
 
         };
