@@ -125,20 +125,22 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
                     dataType:'blob',
                     type:'GET',
                     url: vfBaseUrl + droppedData.clickURL + "zip",
-                    xhrFields: {withCredentials: true}
-                }).done(function(blob){
-                    artifact.addFileAsSoftLink(droppedData.label+'.zip', blob, function (err, hash) {
+                    xhrFields: {withCredentials: true},
+                    async: false,
+                    success: function (blob) {
+                        artifact.addFileAsSoftLink(droppedData.label+'.zip', blob, function (err, hash) {
 
-                        if (err) {
-                            //TODO: something went wrong, tell the user????
-                        } else {
-                            // successfully uploaded
-                        }
+                            if (err) {
+                                //TODO: something went wrong, tell the user????
+                            } else {
+                                // successfully uploaded
+                            }
 
-                        self.setValue(hash);
-                        self.fireFinishChange();
-                        self._attachFileDropHandlers(false);
-                    });
+                            self.setValue(hash);
+                            self.fireFinishChange();
+                            self._attachFileDropHandlers(false);
+                        });
+                    }
                 });
             }
 
