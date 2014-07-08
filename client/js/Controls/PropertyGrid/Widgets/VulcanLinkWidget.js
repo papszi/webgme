@@ -139,6 +139,8 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
                         self.fireFinishChange();
                         self._attachFileDropHandlers(false);
                     });
+                }).fail(function()  {
+                    console.log("Sorry. Server unavailable. ");
                 });
             }
 
