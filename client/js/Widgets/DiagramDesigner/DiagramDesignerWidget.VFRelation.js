@@ -337,7 +337,7 @@ define(['logManager',
                         mountPointE.append($('<a/>', {
                             'class': 'relation-create-button',
                             text: '+',
-                            'href': relation.createURL + '?artifact_ref=' + encodeURIComponent(config.refId),
+                            'href': config.baseUrl + relation.createURL + '?artifact_ref=' + encodeURIComponent(config.refId),
                             title: 'Create new',
                             target: '_top'
                         }));
@@ -441,7 +441,7 @@ define(['logManager',
                     relationsListE.after($('<div/>', {
                         html: 'Show more relations &raquo;',
                         click: function () {
-                            top.location.href = config.parentClickURL;
+                            top.location.href = config.baseUrl + config.parentClickURL;
                         },
                         'class': 'show-more',
                         title: 'Show all relationships'
@@ -497,21 +497,17 @@ define(['logManager',
                 'class': 'copyLinkButton',
                 'title': 'Add to Link Bin',
                 click: function () {
-                    if ( top.$vf && top.$vf.referenceBin ) {
-                        top.$vf.referenceBin.addReference(config.refId);
-                    } else {
-                        $.ajax({
-                            url: config.baseUrl + config.addUrl,
-                            type: 'PUT',
-                            data: {
-                                'ref_id': config.refId
-                            },
-                            dataType: "json",
-                            error: function() {
+                    $.ajax({
+                        url: config.baseUrl + config.addUrl,
+                        type: 'PUT',
+                        data: {
+                            'ref_id': config.refId
+                        },
+                        dataType: "json",
+                        error: function() {
 
-                            }
-                        });
-                    }
+                        }
+                    });
                 }
             });
             config.containerE.append(buttonE);
