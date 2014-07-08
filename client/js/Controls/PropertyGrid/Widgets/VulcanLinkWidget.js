@@ -124,7 +124,7 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
                 $.ajax({
                     dataType:'blob',
                     type:'GET',
-                    url: vfBaseUrl + droppedData.clickURL + "zip",
+                    url: vfBaseUrl + '/rest' + droppedData.clickURL + "zip",
                     xhrFields: {withCredentials: true},
                     done: function (blob) {
                         console.log(droppedData.label+'.zip');
