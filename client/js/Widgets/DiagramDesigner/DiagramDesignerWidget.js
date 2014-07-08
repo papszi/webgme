@@ -247,19 +247,19 @@ define(['logManager',
         // VF ArtifactLink integration
         this._client = params.client;
         if (params && params.vehicleforge) {
-            this.selectionManager.infoPanelFactory = function (relation_btn, element) {
-                return new ArtifactInfoPanel({
-                    baseUrl: params.vehicleforge.baseUrl,
-                    addUrl: params.vehicleforge.toolRestUrl + '/linkbin?_method=put',
-                    infoURL: '/artifact_ref/get_references/',
-                    refId: "WebGME." + self._client.getActiveProject() + '.' + element + '.' + self._client.getActualBranch(),
-                    infoTriggerE: relation_btn,
-                    embedded: true
-                });
-            };
+            this._vehicleforge = params.vehicleforge;
+            this.selectionManager.infoPanelFactory = this._infoPanelFactory;
         }
 
         this.logger.debug("DiagramDesignerWidget ctor finished");
+    };
+
+    DiagramDesignerWidget.prototype._infoPanelFactory = function (relation_btn, element) {
+        this.createInfoPanel(relation_btn, this._vehicleforge, element);
+    };
+
+    DiagramDesignerWidget.prototype.createInfoPanel = function (relation_btn, vehicleforge, selectedId) {
+
     };
 
     DiagramDesignerWidget.prototype._afterManagersInitialized = function () {

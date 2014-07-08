@@ -136,6 +136,10 @@ define(['logManager',
             self._onSelectionContextMenu(selectedIds, mousePos);
         };
 
+        this.designerCanvas.infoPanelFactory = function (relation_btn, element) {
+            self._infoPanelFactory(relation_btn, element);
+        };
+
         this.designerCanvas.onSelectionFillColorChanged = function (selectedElements, color) {
             self._onSelectionFillColorChanged(selectedElements, color);
         };
@@ -1104,6 +1108,18 @@ define(['logManager',
             this.designerCanvas.posToPageXY(mousePos.mX,
                 mousePos.mY)
         );
+    };
+
+    ModelEditorControlDiagramDesignerWidgetEventHandlers.prototype.createInfoPanel = function (relation_btn, vehicleforge, selectedId) {
+        var gmeId = this._ComponentID2GMEID[selectedId];
+        return new ArtifactInfoPanel({
+            baseUrl: vehicleforge.baseUrl,
+            addUrl: vehicleforge.toolRestUrl + '/linkbin?_method=put',
+            infoURL: '/artifact_ref/get_references/',
+            refId: "WebGME." + this._client.getActiveProject() + '.' + gmeId + '.' + this._client.getActualBranch(),
+            infoTriggerE: relation_btn,
+            embedded: true
+        });
     };
 
     ModelEditorControlDiagramDesignerWidgetEventHandlers.prototype._exportItems = function (selectedIds) {
