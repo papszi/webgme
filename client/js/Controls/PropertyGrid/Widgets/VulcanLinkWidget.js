@@ -2,10 +2,11 @@
 
 define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
     'blob/BlobClient',
-    'css!/css/Controls/PropertyGrid/Widgets/VulcanLinkWidget',
-    'clientUtil'],
+    'clientUtil',
+    'css!/css/Controls/PropertyGrid/Widgets/VulcanLinkWidget'],
     function (WidgetBase,
-              BlobClient) {
+              BlobClient,
+              clientUtil) {
 
         var VulcanLinkWidget,
             ASSET_WIDGET_BASE = $('<div class="asset-widget" />'),
