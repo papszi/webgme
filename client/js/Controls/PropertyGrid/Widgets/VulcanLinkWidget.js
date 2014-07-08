@@ -2,7 +2,8 @@
 
 define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
     'blob/BlobClient',
-    'css!/css/Controls/PropertyGrid/Widgets/VulcanLinkWidget'],
+    'css!/css/Controls/PropertyGrid/Widgets/VulcanLinkWidget',
+    'clientUtil'],
     function (WidgetBase,
               BlobClient) {
 
@@ -107,8 +108,7 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
         VulcanLinkWidget.prototype._linkDropHandler = function (event) {
             var self = this,
                 blobClient = new BlobClient(),
-                i,
-                file;
+                vfBaseUrl;
 
             // cancel event and hover styling
             event.stopPropagation();
@@ -117,25 +117,28 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
             var droppedData = JSON.parse(event.dataTransfer.getData("application/json"));
             var afName = self.propertyName;
             var artifact = blobClient.createArtifact(afName);
+            vfBaseUrl = clientUtil.getURLParameterByName("vfBaseUrl");
 
-            $.ajax({
-                dataType:'blob',
-                type:'GET',
-                url:droppedData.clickURL + "zip"
-            }).done(function(blob){
-                artifact.addFileAsSoftLink(droppedData.label+'.zip', blob, function (err, hash) {
+            if (vfBaseUrl) {
+                $.ajax({
+                    dataType:'blob',
+                    type:'GET',
+                    url: vfBaseUrl + droppedData.clickURL + "zip"
+                }).done(function(blob){
+                    artifact.addFileAsSoftLink(droppedData.label+'.zip', blob, function (err, hash) {
 
-                    if (err) {
-                        //TODO: something went wrong, tell the user????
-                    } else {
-                        // successfully uploaded
-                    }
+                        if (err) {
+                            //TODO: something went wrong, tell the user????
+                        } else {
+                            // successfully uploaded
+                        }
 
-                    self.setValue(hash);
-                    self.fireFinishChange();
-                    self._attachFileDropHandlers(false);
+                        self.setValue(hash);
+                        self.fireFinishChange();
+                        self._attachFileDropHandlers(false);
+                    });
                 });
-            });
+            }
 
         };
 
