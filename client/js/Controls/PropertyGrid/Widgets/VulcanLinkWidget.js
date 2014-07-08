@@ -115,10 +115,10 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
 
             if (vfBaseUrl) {
                 var xhr = new XMLHttpRequest();
-                xhr.onreadystatechange = function(){
-                    if (this.readyState == 4 && this.status == 200){
+                xhr.onload = function(){
+                    if (xhr.status == 200){
                         console.log(droppedData.label+'.zip');
-                        artifact.addFileAsSoftLink(droppedData.label+'.zip', this.response, function (err, hash) {
+                        artifact.addFileAsSoftLink(droppedData.label+'.zip', xhr.response, function (err, hash) {
                             if (err) {
                                 //TODO: something went wrong, tell the user????
                             } else {
