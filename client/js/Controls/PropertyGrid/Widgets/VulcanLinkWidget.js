@@ -116,21 +116,18 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
             if (vfBaseUrl) {
                 var xhr = new XMLHttpRequest();
                 xhr.onload = function(){
-                    if (xhr.status == 200){
-                        console.log(droppedData.label+'.zip');
-                        artifact.addFileAsSoftLink(droppedData.label+'.zip', xhr.response, function (err, hash) {
-                            if (err) {
-                                //TODO: something went wrong, tell the user????
-                            } else {
-                                // successfully uploaded
-                            }
+                    console.log(droppedData.label+'.zip');
+                    artifact.addFileAsSoftLink(droppedData.label+'.zip', xhr.response, function (err, hash) {
+                        if (err) {
+                            //TODO: something went wrong, tell the user????
+                        } else {
+                            // successfully uploaded
+                        }
 
-                            self.setValue(hash);
-                            self.fireFinishChange();
-                            self._attachLinkDropHandlers(false);
-                        });
-
-                    }
+                        self.setValue(hash);
+                        self.fireFinishChange();
+                        self._attachLinkDropHandlers(false);
+                    });
                 }
                 xhr.open('GET', vfBaseUrl + '/rest' + droppedData.clickURL + "zip");
                 xhr.responseType = 'blob';
