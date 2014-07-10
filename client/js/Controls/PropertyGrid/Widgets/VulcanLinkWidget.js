@@ -129,8 +129,9 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
                         self._attachLinkDropHandlers(false);
                     });
                 }
-                xhr.open('GET', vfBaseUrl + '/rest' + droppedData.clickURL + "zip");
+                xhr.open('GET', vfBaseUrl + '/rest' + droppedData.clickURL + "zip", true);
                 xhr.responseType = 'blob';
+                xhr.withCredentials = true;
                 xhr.send();
             }
 
