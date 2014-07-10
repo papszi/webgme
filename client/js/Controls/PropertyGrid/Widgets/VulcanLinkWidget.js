@@ -9,13 +9,13 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
               clientUtil) {
 
         var VulcanLinkWidget,
-            ASSET_WIDGET_BASE = $('<div class="asset-widget" />'),
+            LINK_WIDGET_BASE = $('<div class="asset-widget" />'),
             ASSET_LINK = $('<a href=""/>');
 
         VulcanLinkWidget = function (propertyDesc) {
             VulcanLinkWidget.superclass.call(this, propertyDesc);
 
-            this.__el = ASSET_WIDGET_BASE.clone();
+            this.__el = LINK_WIDGET_BASE.clone();
             this.el.append(this.__el);
 
             this.__assetLink = ASSET_LINK.clone();
@@ -117,7 +117,7 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
                 var xhr = new XMLHttpRequest();
                 xhr.onload = function(){
                     console.log(droppedData.label+'.zip');
-                    artifact.addFileAsSoftLink(droppedData.label+'.zip', xhr.response, function (err, hash) {
+                    artifact.addFile(droppedData.label+'.zip', xhr.response, function (err, hash) {
                         if (err) {
                             //TODO: something went wrong, tell the user????
                         } else {
