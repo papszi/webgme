@@ -39,19 +39,19 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
             this.__linkDropTarget.on('dragover dragenter', function (event) {
                 event.preventDefault(); //IE 10 needs this to ba able to drop
                 self.__linkDropTarget.addClass('hover');
-            });
+            }, false);
 
             this.__linkDropTarget.on('dragleave', function (event) {
                 event.preventDefault();
                 self.__linkDropTarget.removeClass('hover');
-            });
+            }, false);
 
             this.__linkDropTarget.on("drop", function (event) {
                 event.stopPropagation();
                 event.preventDefault();
                 self.__linkDropTarget.removeClass('hover');
                 self._linkDropHandler(event.originalEvent);
-            });
+            }, false);
         };
 
         VulcanLinkWidget.prototype._detachLinkDropHandlers = function () {
