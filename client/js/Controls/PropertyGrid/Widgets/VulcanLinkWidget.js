@@ -37,8 +37,10 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
 
             //filedrag
             this.__linkDropTarget.on('dragover dragenter', function (event) {
-                event.preventDefault(); //IE 10 needs this to ba able to drop
-                self.__linkDropTarget.addClass('hover');
+                if (event.originalEvent.dataTransfer.types.indexOf("application/x-vulcan-artifact+json") >= 0){
+                    event.preventDefault(); //IE 10 needs this to ba able to drop
+                    self.__linkDropTarget.addClass('hover');
+                }
             });
 
             this.__linkDropTarget.on('dragleave', function (event) {
@@ -47,10 +49,12 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
             });
 
             this.__linkDropTarget.on("drop", function (event) {
-                event.stopPropagation();
-                event.preventDefault();
-                self.__linkDropTarget.removeClass('hover');
-                self._linkDropHandler(event.originalEvent);
+                if (event.originalEvent.dataTransfer.types.indexOf("application/x-vulcan-artifact+json") >= 0){
+                    event.stopPropagation();
+                    event.preventDefault();
+                    self.__linkDropTarget.removeClass('hover');
+                    self._linkDropHandler(event.originalEvent);
+                }
             });
         };
 
