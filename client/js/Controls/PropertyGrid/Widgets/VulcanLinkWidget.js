@@ -37,7 +37,7 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
 
             //filedrag
             this.__linkDropTarget.on('dragover dragenter', function (event) {
-                if (event.originalEvent.dataTransfer.types.indexOf("application/x-vulcan-artifact+json") >= 0){
+                if (event.originalEvent.dataTransfer.types.contains("application/x-vulcan-artifact+json")){
                     event.preventDefault(); //IE 10 needs this to ba able to drop
                     self.__linkDropTarget.addClass('hover');
                 }
@@ -49,7 +49,7 @@ define(['js/Controls/PropertyGrid/Widgets/WidgetBase',
             });
 
             this.__linkDropTarget.on("drop", function (event) {
-                if (event.originalEvent.dataTransfer.types.indexOf("application/x-vulcan-artifact+json") >= 0){
+                if (event.originalEvent.dataTransfer.types.contains("application/x-vulcan-artifact+json")){
                     event.stopPropagation();
                     event.preventDefault();
                     self.__linkDropTarget.removeClass('hover');
