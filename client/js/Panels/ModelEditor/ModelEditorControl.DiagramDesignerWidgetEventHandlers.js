@@ -1137,7 +1137,7 @@ define(['logManager',
             baseUrl: vehicleforge.baseUrl,
             addUrl: vehicleforge.toolRestUrl + '/linkbin?_method=put',
             infoURL: '/artifact_ref/get_references/',
-            refId: "WebGME." + this._client.getActiveProject() + '.' + gmeId + '.' + this._client.getActualBranch(),
+            refId: "WebGME." + this._client.getActiveProjectName() + '.' + gmeId + '.' + this._client.getActualBranch(),
             infoTriggerE: relation_btn,
             embedded: false
         });
