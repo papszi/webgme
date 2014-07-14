@@ -2,7 +2,7 @@
 
 define(['logManager',
     'lib/jquery/jquery.qtip',
-    'css!/css/Widgets/DiagramDesigner/DiagramDesignerWidget.VFRelation'], function (logManager) {
+    'css!./styles/DiagramDesignerWidget.VFRelation'], function (logManager) {
     var ArtifactInfoPanel,
         ArtifactLink,
         CopyLinkButton,
