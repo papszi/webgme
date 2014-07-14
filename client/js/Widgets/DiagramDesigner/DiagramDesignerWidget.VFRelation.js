@@ -8,7 +8,8 @@ define(['logManager',
         CopyLinkButton,
         ArtifactLinkList,
         defaultInfoURL = '/artifact_ref/get_references/',
-        slugify;
+        slugify,
+        logger = logManager.create("VFRelation");
 
     slugify = function (str) {
         return str.toString().
@@ -210,7 +211,7 @@ define(['logManager',
             relationsListE = null,
             createLinkButton = null,
             relationsMap = {},
-            progressBar,
+            backgroundDiv = $('<div id="context-menu-layer"></div>'),
             postRedraw = $.noop,
             loaded = false;
 
@@ -248,6 +249,13 @@ define(['logManager',
                                 postRedraw();
                                 api.reposition();
                                 loaded = true;
+                            },
+                            error: function () {
+                                contentE.html("<p class='artifact-error'>Error loading related artifacts.</p>");
+                                api.reposition();
+                                postRedraw();
+                                api.reposition();
+                                loaded = true;
                             }
                         });
                     }
@@ -268,8 +276,21 @@ define(['logManager',
             hide: {event: 'unfocus'},
             style: {
                 classes: 'ui-tooltip-artifact'
+            },
+            events: {
+                show: function (event, api) {
+                    backgroundDiv.off("mousedown");
+                    backgroundDiv.on("mousedown", function (clickEvent){
+                        clickEvent.stopPropagation();
+                        clickEvent.preventDefault();
+                        api.hide();
+                    });
+                    $('body').append(backgroundDiv);
+                },
+                hide: function (event, api) {
+                    backgroundDiv.detach();
+                }
             }
-
         });
 
         var initRelations = function () {

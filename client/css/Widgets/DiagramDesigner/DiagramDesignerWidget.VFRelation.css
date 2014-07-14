@@ -28,6 +28,9 @@
   display: inline-block;
   width: 100%; }
 
+.artifact-error {
+  margin: 4px; }
+
 .mount-point-icon {
   width: 11px;
   height: 11px; }
@@ -83,7 +86,9 @@
   box-shadow: 0 0 5px rgba(0, 0, 0, 0.4);
   max-width: 600px !important;
   border-bottom-left-radius: 10px;
-  border-bottom-right-radius: 10px; }
+  border-bottom-right-radius: 10px;
+  border-color: #fff;
+  background-color: #fff; }
 
 .ui-tooltip-artifact .ui-tooltip-titlebar {
   background-color: #336;
